@@ -24,28 +24,32 @@ npm run build
 
 Output is in `dist/`.
 
-## Load in Chrome / Edge
+## Install from GitHub Release
 
-1. Run `npm run build`
-2. Open `chrome://extensions` (or `edge://extensions`)
-3. Enable **Developer mode**
-4. **Load unpacked** → select the `dist` folder
-5. Open a new tab
+1. Download the latest zip from  
+   **[Latest release](https://github.com/kdpuvvadi/my-little-space/releases/latest)**  
+   (`my-little-space-<version>.zip`)
+2. Unzip it somewhere permanent (Chrome loads from that folder)
+3. Open `chrome://extensions` (or `edge://extensions`)
+4. Enable **Developer mode**
+5. **Load unpacked** → select the unzipped folder
+6. Open a new tab
 
-### Share via GitHub Release (zip)
-
-Publishing to the Chrome Web Store is optional. You can ship a zip from GitHub Releases:
-
-1. Push to GitHub and create a release (tag e.g. `v1.0.0`)
-2. The **Release** workflow builds `dist/` and uploads `my-little-space-<version>.zip`
-3. Recipients unzip and **Load unpacked** that folder in `chrome://extensions`
-
-Local pack (same zip shape):
+## Develop / load from source
 
 ```bash
-npm run pack
+npm install
+npm run build
 ```
 
+Then **Load unpacked** → `dist/`.
+
+```bash
+npm run dev    # watch mode
+npm run pack   # build + zip locally (same shape as the release asset)
+```
+
+Creating a GitHub Release (tag e.g. `v1.0.0`) runs the **Release** workflow, which builds and uploads the zip to that release.
 ## Safari (macOS)
 
 Safari needs Apple’s converter and an Xcode wrapper (not produced on Windows):
