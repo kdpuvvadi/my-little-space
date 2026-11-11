@@ -1,0 +1,44 @@
+export type SearchProvider = {
+  id: string;
+  name: string;
+  bang: string;
+  searchUrl: string;
+};
+
+export type Shortcut = {
+  id: string;
+  url: string;
+  title: string;
+  iconUrl: string;
+};
+
+export type Branding = {
+  logoUrl: string;
+  showLogo: boolean;
+  brandName: string;
+  eyebrow: string;
+  headline: string;
+  searchPlaceholder: string;
+  shortcutsTitle: string;
+  editLabel: string;
+  addShortcutLabel: string;
+  footerTagline: string;
+  customizeLabel: string;
+  showDate: boolean;
+};
+
+export type NewTabMode = 'builtin' | 'customUrl';
+
+export type ThemeMode = 'light' | 'dark' | 'system';
+
+export type Settings = {
+  mode: NewTabMode;
+  customUrl: string;
+  theme: ThemeMode;
+  providers: SearchProvider[];
+  defaultProviderId: string;
+  enabledProviderIds: string[];
+  selectedProviderId: string;
+  shortcuts: Shortcut[];
+  branding: Branding;
+};
