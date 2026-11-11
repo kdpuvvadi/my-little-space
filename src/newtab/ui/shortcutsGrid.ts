@@ -1,0 +1,106 @@
+import type { Settings, Shortcut } from '../../shared/types';
+import { plusSvg } from './icons';
+
+export type ShortcutsGridApi = {
+  root: HTMLElement;
+  setSettings: (settings: Settings, editing: boolean) => void;
+};
+
+export function createShortcutsGrid(options: {
+  onAdd: () => void;
+  onEditToggle: () => void;
+  onEditShortcut: (shortcut: Shortcut) => void;
+  onDeleteShortcut: (id: string) => void;
+}): ShortcutsGridApi {
+  let settings: Settings | null = null;
+  let editing = false;
+
+  const root = document.createElement('section');
+  root.className = 'shortcuts-section';
+  root.innerHTML = `
+    <div class="shortcuts-header">
+      <h2 class="shortcuts-title"></h2>
+      <button type="button" class="edit-btn"></button>
+    </div>
+    <div class="shortcuts-grid"></div>
+  `;
+
+  const titleEl = root.querySelector('.shortcuts-title') as HTMLHeadingElement;
+  const editBtn = root.querySelector('.edit-btn') as HTMLButtonElement;
+  const grid = root.querySelector('.shortcuts-grid') as HTMLDivElement;
+
+  editBtn.addEventListener('click', () => options.onEditToggle());
+
+  function render(): void {
+    if (!settings) return;
+    const { branding, shortcuts } = settings;
+    titleEl.textContent = branding.shortcutsTitle;
+    editBtn.textContent = editing ? 'Done' : branding.editLabel;
+    editBtn.setAttribute('aria-pressed', String(editing));
+
+    const items = shortcuts
+      .map(
+        (sc) => `
+      <div class="shortcut-item ${editing ? 'editing' : ''}" data-id="${sc.id}">
+        <a class="shortcut-tile" href="${sc.url}" ${editing ? 'tabindex="-1"' : ''}>
+          ${
+            sc.iconUrl
+              ? `<img src="${sc.iconUrl}" alt="" loading="lazy" referrerpolicy="no-referrer" />`
+              : `<span>${sc.title.slice(0, 1)}</span>`
+          }
+        </a>
+        <div class="shortcut-label" title="${sc.title}">${sc.title}</div>
+        <div class="shortcut-actions">
+          <button type="button" class="icon-btn edit" title="Edit" data-action="edit">✎</button>
+          <button type="button" class="icon-btn danger" title="Delete" data-action="delete">×</button>
+        </div>
+      </div>`,
+      )
+      .join('');
+
+    const addTile = `
+      <div class="shortcut-item">
+        <button type="button" class="shortcut-tile add-shortcut" aria-label="${branding.addShortcutLabel}">
+          ${plusSvg}
+        </button>
+        <div class="shortcut-label">${branding.addShortcutLabel}</div>
+      </div>`;
+
+    grid.innerHTML = items + addTile;
+
+    grid.querySelector('.add-shortcut')?.addEventListener('click', () => options.onAdd());
+
+    grid.querySelectorAll('.shortcut-item[data-id]').forEach((el) => {
+      const id = (el as HTMLElement).dataset.id!;
+      const shortcut = shortcuts.find((s) => s.id === id);
+      if (!shortcut) return;
+
+      el.querySelector('[data-action="edit"]')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        options.onEditShortcut(shortcut);
+      });
+      el.querySelector('[data-action="delete"]')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        options.onDeleteShortcut(id);
+      });
+
+      if (editing) {
+        el.querySelector('.shortcut-tile')?.addEventListener('click', (e) => {
+          e.preventDefault();
+          options.onEditShortcut(shortcut);
+        });
+      }
+    });
+  }
+
+  return {
+    root,
+    setSettings: (next, isEditing) => {
+      settings = next;
+      editing = isEditing;
+      render();
+    },
+  };
+}
