@@ -32,6 +32,20 @@ Output is in `dist/`.
 4. **Load unpacked** → select the `dist` folder
 5. Open a new tab
 
+### Share via GitHub Release (zip)
+
+Publishing to the Chrome Web Store is optional. You can ship a zip from GitHub Releases:
+
+1. Push to GitHub and create a release (tag e.g. `v1.0.0`)
+2. The **Release** workflow builds `dist/` and uploads `my-little-space-<version>.zip`
+3. Recipients unzip and **Load unpacked** that folder in `chrome://extensions`
+
+Local pack (same zip shape):
+
+```bash
+npm run pack
+```
+
 ## Safari (macOS)
 
 Safari needs Apple’s converter and an Xcode wrapper (not produced on Windows):

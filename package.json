@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "pack": "npm run build && node ./scripts/pack.mjs"
   },
   "dependencies": {
     "yaml": "^2.7.0"
