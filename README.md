@@ -1,0 +1,64 @@
+# My Little Space
+
+A calm, customizable new-tab extension for Chrome (and Safari via Web Extension conversion).
+
+## Features
+
+- Built-in new tab, or open a custom URL as a full page (iframes are blocked by many sites). Use the toolbar icon / options page to change settings while on a custom URL.
+- Search with provider dropdown + bangs (`!g`, `!d`, …); edit bangs and add custom providers in Customize
+- Shortcuts with auto-fetched title/favicon (editable)
+- Full branding/copy customization (logo, all visible text)
+- Light / dark / system theme
+- Local-only storage + YAML export/import (no account sync)
+
+## Develop
+
+```bash
+npm install
+npm run dev
+```
+
+```bash
+npm run build
+```
+
+Output is in `dist/`.
+
+## Load in Chrome / Edge
+
+1. Run `npm run build`
+2. Open `chrome://extensions` (or `edge://extensions`)
+3. Enable **Developer mode**
+4. **Load unpacked** → select the `dist` folder
+5. Open a new tab
+
+## Safari (macOS)
+
+Safari needs Apple’s converter and an Xcode wrapper (not produced on Windows):
+
+1. Build this project (`npm run build`)
+2. On a Mac with Xcode installed:
+
+```bash
+xcrun safari-web-extension-converter dist --app-name "My Little Space" --bundle-identifier com.example.mylittlespace
+```
+
+3. Open the generated Xcode project, sign with your team, and run
+4. In Safari: **Settings → Extensions** → enable **My Little Space**
+5. Allow the extension to override the new-tab / start page as prompted
+
+Developer signing / App Store distribution are separate Safari steps.
+
+## YAML backup
+
+In **Customize → Backup**:
+
+- **Export** downloads your full config as YAML (mode, providers, branding, shortcuts)
+- **Import** replaces local settings from a YAML file after confirmation
+
+Unknown fields or invalid YAML are rejected (no partial apply).
+
+## Permissions
+
+- `storage` — local settings
+- Optional host access (`http://*/*`, `https://*/*`) — requested **once** only if you click **Fetch page title** to read the real `<title>` from a site. Default shortcut add uses the hostname + Google’s favicon CDN and does not prompt.
