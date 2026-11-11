@@ -1,0 +1,129 @@
+import type { Shortcut } from './types';
+
+const ALL_HOSTS = ['http://*/*', 'https://*/*'] as const;
+
+export function createShortcutId(): string {
+  return `sc-${crypto.randomUUID()}`;
+}
+
+/** Public favicon CDN — used as <img src>, no host permission required. */
+export function faviconUrlFor(pageUrl: string): string {
+  try {
+    const host = new URL(pageUrl).hostname;
+    return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64`;
+  } catch {
+    return '';
+  }
+}
+
+export function originFavicon(pageUrl: string): string {
+  try {
+    const origin = new URL(pageUrl).origin;
+    return `${origin}/favicon.ico`;
+  } catch {
+    return '';
+  }
+}
+
+export function normalizePageUrl(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
+export function titleFromUrl(pageUrl: string): string {
+  try {
+    const { hostname } = new URL(pageUrl);
+    return hostname.replace(/^www\./i, '');
+  } catch {
+    return pageUrl;
+  }
+}
+
+/** Instant defaults — no network permission, no Chrome prompt. */
+export function guessPageMeta(pageUrl: string): { title: string; iconUrl: string } {
+  const url = normalizePageUrl(pageUrl);
+  return {
+    title: titleFromUrl(url),
+    iconUrl: faviconUrlFor(url) || originFavicon(url),
+  };
+}
+
+export async function hasBrowsePermission(): Promise<boolean> {
+  try {
+    if (!chrome.permissions?.contains) return false;
+    return await chrome.permissions.contains({ origins: [...ALL_HOSTS] });
+  } catch {
+    return false;
+  }
+}
+
+/** One-time prompt for all sites (matches optional_host_permissions). */
+export async function requestBrowsePermission(): Promise<boolean> {
+  try {
+    if (!chrome.permissions?.request) return true;
+    if (await hasBrowsePermission()) return true;
+    return await chrome.permissions.request({ origins: [...ALL_HOSTS] });
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Prefer live HTML title/icon when browse permission is already granted.
+ * Otherwise fall back to hostname + favicon CDN (no prompt).
+ */
+export async function fetchPageMeta(
+  pageUrl: string,
+  options: { allowPrompt?: boolean } = {},
+): Promise<{ title: string; iconUrl: string; source: 'page' | 'guess' }> {
+  const url = normalizePageUrl(pageUrl);
+  const guess = guessPageMeta(url);
+
+  let allowed = await hasBrowsePermission();
+  if (!allowed && options.allowPrompt) {
+    allowed = await requestBrowsePermission();
+  }
+
+  if (!allowed) {
+    return { ...guess, source: 'guess' };
+  }
+
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: 'FETCH_PAGE_META',
+      url,
+    });
+    if (response?.ok) {
+      const title =
+        typeof response.title === 'string' && response.title.trim()
+          ? response.title.trim()
+          : guess.title;
+      const iconUrl =
+        typeof response.iconUrl === 'string' && response.iconUrl
+          ? response.iconUrl
+          : guess.iconUrl;
+      return { title, iconUrl, source: 'page' };
+    }
+  } catch {
+    // fall through
+  }
+
+  return { ...guess, source: 'guess' };
+}
+
+export function newShortcut(partial: {
+  url: string;
+  title?: string;
+  iconUrl?: string;
+}): Shortcut {
+  const url = normalizePageUrl(partial.url);
+  const guess = guessPageMeta(url);
+  return {
+    id: createShortcutId(),
+    url,
+    title: partial.title?.trim() || guess.title,
+    iconUrl: partial.iconUrl || guess.iconUrl,
+  };
+}
