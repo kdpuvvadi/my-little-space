@@ -549,6 +549,11 @@ a {
   text-decoration: underline;
 }
 
+.edit-btn.cancel-btn {
+  color: var(--muted);
+  font-weight: 500;
+}
+
 .edit-btn.hidden {
   display: none;
 }

@@ -18,7 +18,12 @@ export type ShortcutsGridApi = {
 
 export function createShortcutsGrid(options: {
   onAdd: () => void;
-  onEditToggle: () => void;
+  /** Enter edit mode (when not editing). */
+  onBeginEdit: () => void;
+  /** Persist draft and leave edit mode. */
+  onSaveEdit: () => void | Promise<void>;
+  /** Discard draft and leave edit mode. */
+  onCancelEdit: () => void;
   onUpdateMeta: () => void | Promise<void>;
   onEditShortcut: (shortcut: Shortcut) => void;
   onDeleteShortcut: (id: string) => void;
@@ -36,18 +41,24 @@ export function createShortcutsGrid(options: {
         <button type="button" class="edit-btn update-meta-btn hidden" title="Refresh names and icons for shortcuts older than 30 days">
           Update
         </button>
-        <button type="button" class="edit-btn done-btn"></button>
+        <button type="button" class="edit-btn cancel-btn hidden">Cancel</button>
+        <button type="button" class="edit-btn primary-btn"></button>
       </div>
     </div>
     <div class="shortcuts-grid"></div>
   `;
 
   const titleEl = root.querySelector('.shortcuts-title') as HTMLHeadingElement;
-  const editBtn = root.querySelector('.done-btn') as HTMLButtonElement;
+  const primaryBtn = root.querySelector('.primary-btn') as HTMLButtonElement;
+  const cancelBtn = root.querySelector('.cancel-btn') as HTMLButtonElement;
   const updateBtn = root.querySelector('.update-meta-btn') as HTMLButtonElement;
   const grid = root.querySelector('.shortcuts-grid') as HTMLDivElement;
 
-  editBtn.addEventListener('click', () => options.onEditToggle());
+  primaryBtn.addEventListener('click', () => {
+    if (editing) void options.onSaveEdit();
+    else options.onBeginEdit();
+  });
+  cancelBtn.addEventListener('click', () => options.onCancelEdit());
   updateBtn.addEventListener('click', () => {
     if (updateBtn.disabled) return;
     void options.onUpdateMeta();
@@ -57,8 +68,9 @@ export function createShortcutsGrid(options: {
     if (!settings) return;
     const { branding, shortcuts } = settings;
     titleEl.textContent = branding.shortcutsTitle;
-    editBtn.textContent = editing ? 'Done' : branding.editLabel;
-    editBtn.setAttribute('aria-pressed', String(editing));
+    primaryBtn.textContent = editing ? 'Save' : branding.editLabel;
+    primaryBtn.setAttribute('aria-pressed', String(editing));
+    cancelBtn.classList.toggle('hidden', !editing);
     updateBtn.classList.toggle('hidden', !editing);
     grid.classList.toggle('is-editing', editing);
 
