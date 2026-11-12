@@ -6,7 +6,7 @@ A calm, customizable new-tab extension for Chrome (and Safari via Web Extension 
 
 - Built-in new tab, or open a custom URL as a full page (iframes are blocked by many sites). Use the toolbar icon / options page to change settings while on a custom URL.
 - Search with provider dropdown + bangs (`!g`, `!d`, …); edit bangs and add custom providers in Customize
-- Shortcuts with auto icons (Simple Icons / Dashboard Icons → DuckDuckGo → Google favicon) and editable titles
+- Shortcuts with auto icons (curated map → search Simple Icons / Dashboard Icons by host → DuckDuckGo → Google) and editable titles
 - Full branding/copy customization (logo, all visible text)
 - Light / dark / system theme
 - Local-only storage + YAML export/import (no account sync)

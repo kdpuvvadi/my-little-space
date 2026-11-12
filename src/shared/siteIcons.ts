@@ -274,7 +274,89 @@ export function hostnameOf(pageUrl: string): string {
   }
 }
 
-/** Ordered icon URLs: curated → DDG → Google → origin favicon. */
+const SKIP_LABELS = new Set([
+  'www',
+  'app',
+  'apps',
+  'web',
+  'm',
+  'mobile',
+  'api',
+  'cdn',
+  'static',
+  'dev',
+  'staging',
+  'login',
+  'auth',
+  'account',
+  'accounts',
+  'my',
+  'open',
+  'docs',
+  'blog',
+  'shop',
+  'store',
+  'support',
+  'help',
+  'status',
+]);
+
+/**
+ * Guess Simple Icons / Dashboard Icons ids from a hostname when not in the map.
+ * e.g. mail.google.com → google, gmail, google-gmail, …
+ */
+export function guessIconIds(hostname: string): string[] {
+  const host = hostname.replace(/^www\./i, '').toLowerCase();
+  const labels = host.split('.').filter(Boolean);
+  if (!labels.length) return [];
+
+  const multiTld = new Set(['co', 'com', 'org', 'gov', 'ac', 'ne', 'or']);
+  let brandLabels = labels.slice(0, -1);
+  if (
+    labels.length >= 3 &&
+    multiTld.has(labels[labels.length - 2]) &&
+    labels[labels.length - 1].length <= 3
+  ) {
+    brandLabels = labels.slice(0, -2);
+  }
+  if (!brandLabels.length) brandLabels = [labels[0]];
+
+  const brand = brandLabels[brandLabels.length - 1];
+  const subs = brandLabels.slice(0, -1).filter((l) => !SKIP_LABELS.has(l));
+
+  const ids: string[] = [];
+  const add = (id: string) => {
+    const clean = id.toLowerCase().replace(/[^a-z0-9-]/g, '');
+    if (clean && !ids.includes(clean)) ids.push(clean);
+  };
+
+  add(brand);
+  add(brand.replace(/-/g, ''));
+
+  for (const sub of subs) {
+    add(sub);
+    add(sub.replace(/-/g, ''));
+    add(`${brand}-${sub}`);
+    add(`${sub}-${brand}`);
+    add(`${brand}${sub}`);
+    add(`${sub}${brand}`);
+  }
+
+  // mail.google.com → gmail-style guesses
+  if (subs.includes('mail') || subs.includes('email')) {
+    add('gmail');
+    add(`${brand}-mail`);
+    add(`${brand}-gmail`);
+  }
+
+  return ids;
+}
+
+/**
+ * Ordered icon URLs:
+ * curated map → guessed Simple Icons → guessed Dashboard Icons → DDG → Google → origin.
+ * Broken CDN URLs are skipped at render time via <img> onerror fallbacks.
+ */
 export function iconCandidatesFor(pageUrl: string): string[] {
   const host = hostnameOf(pageUrl);
   const urls: string[] = [];
@@ -283,6 +365,13 @@ export function iconCandidatesFor(pageUrl: string): string[] {
   if (curated) urls.push(iconUrlForRef(curated));
 
   if (host) {
+    const guesses = guessIconIds(host);
+    for (const id of guesses) {
+      urls.push(simpleIconsUrl(id));
+    }
+    for (const id of guesses) {
+      urls.push(dashboardIconsUrl(id));
+    }
     urls.push(duckDuckGoIconUrl(host));
     urls.push(googleFaviconUrl(host));
   }
