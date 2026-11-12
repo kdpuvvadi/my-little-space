@@ -42,10 +42,14 @@ export function createShortcutsGrid(options: {
     const items = shortcuts
       .map((sc) => {
         const candidates = iconCandidatesFor(sc.url);
-        const primary =
-          sc.iconUrl && !candidates.includes(sc.iconUrl)
+        // Keep only truly custom icons; refresh auto CDN icons so map fixes apply.
+        const customIcon =
+          sc.iconUrl &&
+          !isAutoIconUrl(sc.iconUrl) &&
+          !candidates.includes(sc.iconUrl)
             ? sc.iconUrl
-            : sc.iconUrl || candidates[0] || '';
+            : '';
+        const primary = customIcon || candidates[0] || sc.iconUrl || '';
         const fallbacks = candidates.filter((u) => u !== primary);
         const fallbackAttr = fallbacks.length
           ? ` data-fallbacks="${fallbacks.map(escapeAttr).join('|')}"`
@@ -128,6 +132,12 @@ export function createShortcutsGrid(options: {
       render();
     },
   };
+}
+
+function isAutoIconUrl(url: string): boolean {
+  return /cdn\.simpleicons\.org|dashboard-icons|icons\.duckduckgo\.com|google\.com\/s2\/favicons|\/favicon\.ico(?:$|\?)/i.test(
+    url,
+  );
 }
 
 function escapeAttr(value: string): string {
