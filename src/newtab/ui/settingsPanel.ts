@@ -153,11 +153,6 @@ export function createSettingsPanel(options: {
           <input type="url" id="customUrl" value="${escapeAttr(s.customUrl)}" placeholder="https://example.com" />
           <p class="panel-note">Opens as a full page (sites often block iframes). Use the extension toolbar icon anytime to change settings or switch back to the built-in page.</p>
         </div>
-        <div class="field">
-          <label for="metaServiceUrl">Site meta helper URL</label>
-          <input type="url" id="metaServiceUrl" value="${escapeAttr(s.metaServiceUrl)}" placeholder="https://meta.example.com" />
-          <p class="panel-note">Optional. Used when adding or updating shortcuts. Leave empty to resolve names and icons locally.</p>
-        </div>
       </div>
 
       <div class="field-group">
@@ -200,6 +195,15 @@ export function createSettingsPanel(options: {
         <p class="panel-error" id="yamlError"></p>
         <p class="panel-note" id="yamlNote"></p>
       </div>
+
+      <details class="advanced-group">
+        <summary>Advanced</summary>
+        <div class="field">
+          <label for="metaServiceUrl">Site meta helper URL</label>
+          <input type="url" id="metaServiceUrl" value="${escapeAttr(s.metaServiceUrl)}" placeholder="https://meta.example.com" />
+          <p class="panel-note">Used when adding or updating shortcuts. Leave empty for local resolve only. Build default can be set via <code>VITE_META_SERVICE_URL</code>.</p>
+        </div>
+      </details>
     `;
 
     bindBrandingFields();
@@ -207,6 +211,7 @@ export function createSettingsPanel(options: {
     bindModeFields();
     bindSearchFields();
     bindBackup();
+    bindAdvancedFields();
   }
 
   function textField(id: string, label: string, value: string): string {
@@ -461,6 +466,9 @@ export function createSettingsPanel(options: {
     body.querySelector('#customUrl')?.addEventListener('change', async (e) => {
       await patchSettings({ customUrl: (e.target as HTMLInputElement).value.trim() });
     });
+  }
+
+  function bindAdvancedFields(): void {
     body.querySelector('#metaServiceUrl')?.addEventListener('change', async (e) => {
       await patchSettings({
         metaServiceUrl: (e.target as HTMLInputElement).value.trim(),
