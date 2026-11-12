@@ -17,6 +17,22 @@ function trimBase(serviceUrl: string): string {
   return serviceUrl.trim().replace(/\/+$/, '');
 }
 
+/** Request optional host access for the helper origin (once). */
+export async function ensureMetaHostPermission(serviceUrl: string): Promise<boolean> {
+  const base = trimBase(serviceUrl);
+  if (!base) return true;
+  try {
+    const origin = new URL(base).origin;
+    const origins = [`${origin}/*`];
+    if (!chrome.permissions?.contains) return true;
+    if (await chrome.permissions.contains({ origins })) return true;
+    if (!chrome.permissions.request) return false;
+    return await chrome.permissions.request({ origins });
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Remote site-meta helper with timeout. Does not fall back locally —
  * callers use fetchSiteMeta for helper-then-local.
@@ -33,6 +49,9 @@ export async function fetchSiteMetaRemote(
   if (!url) return null;
 
   const timeoutMs = options.timeoutMs ?? 3000;
+  const allowed = await ensureMetaHostPermission(base);
+  if (!allowed) return null;
+
   const clientId = await getClientId();
   const endpoint = `${base}/v1/site?url=${encodeURIComponent(url)}`;
   const controller = new AbortController();
