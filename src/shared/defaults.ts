@@ -1,3 +1,4 @@
+import { BUILD_META_SERVICE_URL } from './buildConfig';
 import type { Branding, SearchProvider, Settings } from './types';
 
 export const DEFAULT_PROVIDERS: SearchProvider[] = [
@@ -54,7 +55,7 @@ export function createDefaultSettings(): Settings {
     mode: 'builtin',
     customUrl: '',
     theme: 'light',
-    metaServiceUrl: '',
+    metaServiceUrl: BUILD_META_SERVICE_URL,
     providers,
     defaultProviderId: 'google',
     enabledProviderIds: providers.map((p) => p.id),
