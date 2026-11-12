@@ -161,6 +161,8 @@ export function createShortcutsGrid(options: {
     let pointerId: number | null = null;
     let startX = 0;
     let startY = 0;
+    let lastX = 0;
+    let lastY = 0;
     let offsetX = 0;
     let offsetY = 0;
     let ghost: HTMLElement | null = null;
@@ -252,20 +254,22 @@ export function createShortcutsGrid(options: {
       if (target?.closest('.shortcut-actions, button, a')) return;
 
       pointerId = e.pointerId;
-      startX = e.clientX;
-      startY = e.clientY;
+      startX = lastX = e.clientX;
+      startY = lastY = e.clientY;
       lifted = false;
       moved = false;
       item.setPointerCapture(e.pointerId);
 
       holdTimer = setTimeout(() => {
         holdTimer = null;
-        lift(e.clientX, e.clientY);
+        lift(lastX, lastY);
       }, HOLD_MS);
     });
 
     item.addEventListener('pointermove', (e) => {
       if (pointerId !== e.pointerId) return;
+      lastX = e.clientX;
+      lastY = e.clientY;
       const dx = e.clientX - startX;
       const dy = e.clientY - startY;
 
@@ -279,8 +283,6 @@ export function createShortcutsGrid(options: {
 
       e.preventDefault();
       moveGhost(e.clientX, e.clientY);
-      // Hide ghost briefly so elementFromPoint sees the grid underneath.
-      if (ghost) ghost.style.pointerEvents = 'none';
       reorderUnderPointer(e.clientX, e.clientY);
     });
 
