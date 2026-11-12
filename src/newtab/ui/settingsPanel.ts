@@ -1,3 +1,4 @@
+import { BUILD_META_SERVICE_URL } from '../../shared/buildConfig';
 import { createDefaultSettings, DEFAULT_PROVIDERS } from '../../shared/defaults';
 import { newCustomProvider, normalizeBang } from '../../shared/providers';
 import type { Branding, SearchProvider, Settings, ThemeMode } from '../../shared/types';
@@ -200,8 +201,16 @@ export function createSettingsPanel(options: {
         <summary>Advanced</summary>
         <div class="field">
           <label for="metaServiceUrl">Site meta helper URL</label>
-          <input type="url" id="metaServiceUrl" value="${escapeAttr(s.metaServiceUrl)}" placeholder="https://meta.example.com" />
-          <p class="panel-note">Used when adding or updating shortcuts. Leave empty to resolve names and icons on this device only.</p>
+          <input type="url" id="metaServiceUrl" value="${escapeAttr(
+            !s.metaServiceUrl || s.metaServiceUrl === BUILD_META_SERVICE_URL
+              ? ''
+              : s.metaServiceUrl,
+          )}" placeholder="${escapeAttr(BUILD_META_SERVICE_URL || 'https://meta.example.com')}" />
+          <p class="panel-note">${
+            BUILD_META_SERVICE_URL
+              ? `Leave empty for the default (${escapeAttr(BUILD_META_SERVICE_URL)}), or enter a custom URL.`
+              : 'Leave empty for the built-in default, or enter a custom URL.'
+          }</p>
         </div>
       </details>
     `;

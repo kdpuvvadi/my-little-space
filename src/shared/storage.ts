@@ -98,11 +98,9 @@ export function normalizeSettings(raw: unknown): Settings {
     mode: raw.mode === 'customUrl' ? 'customUrl' : 'builtin',
     customUrl: typeof raw.customUrl === 'string' ? raw.customUrl : '',
     theme,
-    // Unset → build-time default; explicit "" keeps local-only override.
+    // Empty / unset → use build default at resolve time; non-empty = custom override.
     metaServiceUrl:
-      typeof raw.metaServiceUrl === 'string'
-        ? raw.metaServiceUrl.trim()
-        : defaults.metaServiceUrl,
+      typeof raw.metaServiceUrl === 'string' ? raw.metaServiceUrl.trim() : '',
     providers,
     defaultProviderId,
     enabledProviderIds: enabled,
