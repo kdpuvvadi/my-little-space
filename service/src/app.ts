@@ -1,11 +1,14 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { logger } from 'hono/logger';
 import { siteMetrics } from './metrics.js';
 import { handleSiteLookup } from './siteRoute.js';
 import { getStats } from './stats.js';
 
 export const app = new Hono();
 
+// stdout → visible in `docker compose logs -f`
+app.use('*', logger());
 app.use('*', cors({ origin: '*' }));
 
 app.get('/health', (c) => c.json({ ok: true }));
