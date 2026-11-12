@@ -24,6 +24,10 @@ jobs:
         run: npm ci
 
       - name: Build
+        env:
+          # Repo variable META_SERVICE_URL → baked in as the Customize Advanced default.
+          # Leave unset for local-only resolve until the user sets a URL.
+          VITE_META_SERVICE_URL: ${{ vars.META_SERVICE_URL }}
         run: npm run build
 
       - name: Pack zip
