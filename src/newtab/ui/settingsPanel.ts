@@ -201,7 +201,7 @@ export function createSettingsPanel(options: {
         <div class="field">
           <label for="metaServiceUrl">Site meta helper URL</label>
           <input type="url" id="metaServiceUrl" value="${escapeAttr(s.metaServiceUrl)}" placeholder="https://meta.example.com" />
-          <p class="panel-note">Used when adding or updating shortcuts. Leave empty for local resolve only. Build default can be set via <code>VITE_META_SERVICE_URL</code>.</p>
+          <p class="panel-note">Used when adding or updating shortcuts. Leave empty to resolve names and icons on this device only.</p>
         </div>
       </details>
     `;
