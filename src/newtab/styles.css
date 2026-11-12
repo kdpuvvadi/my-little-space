@@ -549,6 +549,11 @@ a {
   text-decoration: underline;
 }
 
+.edit-btn.cancel-btn {
+  color: var(--muted);
+  font-weight: 500;
+}
+
 .edit-btn.hidden {
   display: none;
 }
@@ -567,6 +572,99 @@ a {
   align-items: center;
   gap: 0.55rem;
   position: relative;
+  touch-action: none;
+}
+
+.shortcuts-grid.is-editing .shortcut-item.editing:not(.add-tile) {
+  cursor: grab;
+  animation: shortcut-jiggle 0.22s ease-in-out infinite alternate;
+  transform-origin: 50% 40%;
+}
+
+.shortcuts-grid.is-editing .shortcut-item.editing:nth-child(2n) {
+  animation-delay: -0.05s;
+}
+
+.shortcuts-grid.is-editing .shortcut-item.editing:nth-child(3n) {
+  animation-delay: -0.11s;
+}
+
+.shortcuts-grid.is-editing .shortcut-item.editing:nth-child(4n) {
+  animation-delay: -0.02s;
+}
+
+.shortcuts-grid.is-reordering .shortcut-item.editing {
+  animation: none;
+}
+
+.shortcut-item.is-placeholder {
+  opacity: 0.22;
+  cursor: grabbing;
+  animation: none !important;
+  pointer-events: none;
+}
+
+.shortcut-item.is-placeholder .shortcut-tile {
+  transform: none;
+  box-shadow: none;
+  outline: 2px dashed color-mix(in srgb, var(--accent) 45%, transparent);
+  outline-offset: 2px;
+  background: transparent !important;
+}
+
+.shortcut-item.is-placeholder .shortcut-letter,
+.shortcut-item.is-placeholder img,
+.shortcut-item.is-placeholder .shortcut-label,
+.shortcut-item.is-placeholder .shortcut-actions {
+  visibility: hidden;
+}
+
+.shortcut-ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 10000;
+  margin: 0;
+  pointer-events: none;
+  cursor: grabbing;
+  filter: drop-shadow(0 16px 28px rgba(0, 0, 0, 0.32));
+  will-change: transform;
+  transition: none;
+  animation: none !important;
+}
+
+.shortcut-ghost .shortcut-actions {
+  display: none !important;
+}
+
+.shortcut-ghost .shortcut-tile {
+  transform: none;
+  box-shadow: var(--shadow);
+}
+
+@keyframes shortcut-jiggle {
+  from {
+    transform: rotate(-2.8deg) translateX(-0.5px);
+  }
+  to {
+    transform: rotate(2.8deg) translateX(0.5px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Keep a light wiggle so edit-mode affordance stays visible. */
+  .shortcuts-grid.is-editing .shortcut-item.editing:not(.add-tile) {
+    animation-duration: 0.45s;
+  }
+
+  @keyframes shortcut-jiggle {
+    from {
+      transform: rotate(-1.2deg);
+    }
+    to {
+      transform: rotate(1.2deg);
+    }
+  }
 }
 
 .shortcut-tile {
