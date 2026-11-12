@@ -227,6 +227,7 @@ async function main(): Promise<void> {
   });
 
   const shortcutModal = createShortcutModal({
+    getMetaServiceUrl: () => settings.metaServiceUrl,
     onSave: async (shortcut: Shortcut) => {
       const existing = settings.shortcuts.findIndex((s) => s.id === shortcut.id);
       const shortcuts =
