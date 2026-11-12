@@ -7,6 +7,9 @@ import { resolveShortcutTitle } from '../../shared/siteTitles';
 import type { Settings, Shortcut } from '../../shared/types';
 import { plusSvg } from './icons';
 
+const HOLD_MS = 220;
+const MOVE_CANCEL_PX = 8;
+
 export type ShortcutsGridApi = {
   root: HTMLElement;
   setSettings: (settings: Settings, editing: boolean) => void;
@@ -57,12 +60,12 @@ export function createShortcutsGrid(options: {
     editBtn.textContent = editing ? 'Done' : branding.editLabel;
     editBtn.setAttribute('aria-pressed', String(editing));
     updateBtn.classList.toggle('hidden', !editing);
+    grid.classList.toggle('is-editing', editing);
 
     const items = shortcuts
       .map((sc) => {
         const title = resolveShortcutTitle(sc.url, sc.title);
         const candidates = iconCandidatesFor(sc.url);
-        // Prefer stored icon (from helper or custom); fall back to local candidates.
         const primary =
           sc.iconUrl.trim() || resolveShortcutIconUrl(sc.url, sc.iconUrl);
         const fallbacks = sc.iconCustom
@@ -73,9 +76,7 @@ export function createShortcutsGrid(options: {
           : '';
         const letter = escapeAttr(title.slice(0, 1).toUpperCase());
         return `
-      <div class="shortcut-item ${editing ? 'editing' : ''}" data-id="${sc.id}"${
-          editing ? ' draggable="true"' : ''
-        }>
+      <div class="shortcut-item ${editing ? 'editing' : ''}" data-id="${sc.id}">
         <a class="shortcut-tile" href="${sc.url}" ${editing ? 'tabindex="-1"' : ''}>
           <span class="shortcut-letter" aria-hidden="true">${letter}</span>
           ${
@@ -129,20 +130,6 @@ export function createShortcutsGrid(options: {
 
     grid.querySelector('.add-shortcut')?.addEventListener('click', () => options.onAdd());
 
-    const addItem = grid.querySelector('.shortcut-item.add-tile') as HTMLElement | null;
-    if (editing && addItem) {
-      addItem.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        const dragging = grid.querySelector('.shortcut-item.dragging');
-        if (!dragging) return;
-        grid.insertBefore(dragging, addItem);
-      });
-      addItem.addEventListener('drop', (e) => {
-        e.preventDefault();
-        persistOrderFromDom();
-      });
-    }
-
     grid.querySelectorAll('.shortcut-item[data-id]').forEach((el) => {
       const item = el as HTMLElement;
       const id = item.dataset.id!;
@@ -161,54 +148,163 @@ export function createShortcutsGrid(options: {
       });
 
       if (editing) {
-        // Pencil/delete for edit; drag the tile to reorder.
         item.querySelector('.shortcut-tile')?.addEventListener('click', (e) => {
           e.preventDefault();
         });
-        bindDragReorder(item);
+        bindLiftDrag(item);
       }
     });
   }
 
-  function bindDragReorder(item: HTMLElement): void {
-    item.addEventListener('dragstart', (e) => {
-      const target = e.target as HTMLElement | null;
-      if (target?.closest('.shortcut-actions, .add-tile')) {
-        e.preventDefault();
-        return;
+  function bindLiftDrag(item: HTMLElement): void {
+    let holdTimer: ReturnType<typeof setTimeout> | null = null;
+    let pointerId: number | null = null;
+    let startX = 0;
+    let startY = 0;
+    let offsetX = 0;
+    let offsetY = 0;
+    let ghost: HTMLElement | null = null;
+    let lifted = false;
+    let moved = false;
+
+    const clearHold = () => {
+      if (holdTimer) {
+        clearTimeout(holdTimer);
+        holdTimer = null;
       }
-      item.classList.add('dragging');
-      e.dataTransfer?.setData('text/plain', item.dataset.id || '');
-      if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
-    });
+    };
 
-    item.addEventListener('dragend', () => {
-      item.classList.remove('dragging');
-      grid.querySelectorAll('.shortcut-item.drag-over').forEach((el) => {
-        el.classList.remove('drag-over');
-      });
-      persistOrderFromDom();
-    });
+    const cleanup = () => {
+      clearHold();
+      if (pointerId !== null) {
+        try {
+          item.releasePointerCapture(pointerId);
+        } catch {
+          // ignore
+        }
+      }
+      pointerId = null;
+      if (ghost) {
+        ghost.remove();
+        ghost = null;
+      }
+      item.classList.remove('is-placeholder', 'is-lifting');
+      grid.classList.remove('is-reordering');
+      lifted = false;
+      moved = false;
+    };
 
-    item.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
-      const dragging = grid.querySelector('.shortcut-item.dragging');
-      if (!dragging || dragging === item) return;
+    const lift = (clientX: number, clientY: number) => {
+      if (lifted) return;
+      lifted = true;
+      moved = true;
+      grid.classList.add('is-reordering');
+      item.classList.add('is-placeholder', 'is-lifting');
 
       const rect = item.getBoundingClientRect();
-      const before = e.clientX < rect.left + rect.width / 2;
-      if (before) {
-        grid.insertBefore(dragging, item);
-      } else {
-        grid.insertBefore(dragging, item.nextSibling);
+      offsetX = clientX - rect.left;
+      offsetY = clientY - rect.top;
+
+      ghost = item.cloneNode(true) as HTMLElement;
+      ghost.classList.remove('is-placeholder', 'is-lifting');
+      ghost.classList.add('shortcut-ghost');
+      ghost.removeAttribute('data-id');
+      ghost.querySelectorAll('[data-action]').forEach((btn) => btn.remove());
+      ghost.style.width = `${rect.width}px`;
+      ghost.style.height = `${rect.height}px`;
+      document.body.append(ghost);
+      moveGhost(clientX, clientY);
+
+      if (navigator.vibrate) {
+        try {
+          navigator.vibrate(12);
+        } catch {
+          // ignore
+        }
       }
+    };
+
+    const moveGhost = (clientX: number, clientY: number) => {
+      if (!ghost) return;
+      ghost.style.transform = `translate3d(${clientX - offsetX}px, ${clientY - offsetY}px, 0) scale(1.12)`;
+    };
+
+    const reorderUnderPointer = (clientX: number, clientY: number) => {
+      const el = document.elementFromPoint(clientX, clientY);
+      const over = el?.closest('.shortcut-item') as HTMLElement | null;
+      if (!over || over === item) return;
+
+      if (over.dataset.add === '1') {
+        grid.insertBefore(item, over);
+        return;
+      }
+      if (!over.dataset.id) return;
+
+      const rect = over.getBoundingClientRect();
+      const before = clientX < rect.left + rect.width / 2;
+      if (before) grid.insertBefore(item, over);
+      else grid.insertBefore(item, over.nextSibling);
+    };
+
+    item.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('.shortcut-actions, button, a')) return;
+
+      pointerId = e.pointerId;
+      startX = e.clientX;
+      startY = e.clientY;
+      lifted = false;
+      moved = false;
+      item.setPointerCapture(e.pointerId);
+
+      holdTimer = setTimeout(() => {
+        holdTimer = null;
+        lift(e.clientX, e.clientY);
+      }, HOLD_MS);
     });
 
-    item.addEventListener('drop', (e) => {
+    item.addEventListener('pointermove', (e) => {
+      if (pointerId !== e.pointerId) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+
+      if (!lifted) {
+        if (Math.hypot(dx, dy) > MOVE_CANCEL_PX) {
+          // Moved before hold completed — cancel lift (treat as scroll/cancel).
+          clearHold();
+        }
+        return;
+      }
+
       e.preventDefault();
-      persistOrderFromDom();
+      moveGhost(e.clientX, e.clientY);
+      // Hide ghost briefly so elementFromPoint sees the grid underneath.
+      if (ghost) ghost.style.pointerEvents = 'none';
+      reorderUnderPointer(e.clientX, e.clientY);
     });
+
+    const endPointer = (e: PointerEvent) => {
+      if (pointerId !== e.pointerId) return;
+      const wasLifted = lifted;
+      cleanup();
+      if (wasLifted) persistOrderFromDom();
+    };
+
+    item.addEventListener('pointerup', endPointer);
+    item.addEventListener('pointercancel', endPointer);
+
+    // Prevent click-through after a lift.
+    item.addEventListener(
+      'click',
+      (e) => {
+        if (moved) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      },
+      true,
+    );
   }
 
   function persistOrderFromDom(): void {

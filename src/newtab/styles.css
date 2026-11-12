@@ -567,15 +567,75 @@ a {
   align-items: center;
   gap: 0.55rem;
   position: relative;
+  touch-action: none;
 }
 
-.shortcut-item.editing[draggable='true'] {
+.shortcuts-grid.is-editing .shortcut-item.editing:not(.add-tile) {
   cursor: grab;
+  animation: shortcut-jiggle 0.28s ease-in-out infinite alternate;
 }
 
-.shortcut-item.editing.dragging {
-  opacity: 0.45;
+.shortcuts-grid.is-editing .shortcut-item.editing:nth-child(2n) {
+  animation-delay: -0.08s;
+}
+
+.shortcuts-grid.is-editing .shortcut-item.editing:nth-child(3n) {
+  animation-delay: -0.16s;
+}
+
+.shortcuts-grid.is-editing .shortcut-item.editing:nth-child(4n) {
+  animation-delay: -0.04s;
+}
+
+.shortcuts-grid.is-reordering .shortcut-item.editing {
+  animation: none;
+}
+
+.shortcut-item.is-placeholder {
+  opacity: 0.28;
   cursor: grabbing;
+}
+
+.shortcut-item.is-placeholder .shortcut-tile {
+  transform: none;
+  box-shadow: none;
+}
+
+.shortcut-ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 10000;
+  margin: 0;
+  pointer-events: none;
+  cursor: grabbing;
+  filter: drop-shadow(0 14px 24px rgba(0, 0, 0, 0.28));
+  will-change: transform;
+  transition: none;
+}
+
+.shortcut-ghost .shortcut-actions {
+  display: none !important;
+}
+
+.shortcut-ghost .shortcut-tile {
+  transform: none;
+  box-shadow: var(--shadow);
+}
+
+@keyframes shortcut-jiggle {
+  from {
+    transform: rotate(-1.2deg);
+  }
+  to {
+    transform: rotate(1.2deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shortcuts-grid.is-editing .shortcut-item.editing:not(.add-tile) {
+    animation: none;
+  }
 }
 
 .shortcut-tile {
