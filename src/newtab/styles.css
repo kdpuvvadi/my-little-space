@@ -575,6 +575,11 @@ a {
   user-select: none;
 }
 
+/* Hide once the real icon is shown (avoids letter showing through transparent favicons). */
+.shortcut-tile:has(img.is-ready) .shortcut-letter {
+  visibility: hidden;
+}
+
 .shortcut-item:nth-child(6n + 1) .shortcut-tile {
   background: var(--tile-1);
 }
