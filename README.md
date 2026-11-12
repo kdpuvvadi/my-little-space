@@ -79,4 +79,4 @@ Unknown fields or invalid YAML are rejected (no partial apply).
 ## Permissions
 
 - `storage` — local settings
-- Optional host access (`http://*/*`, `https://*/*`) — requested **once** only if you click **Fetch page title** to read the real `<title>` from a site. Default shortcut add uses the hostname + Google’s favicon CDN and does not prompt.
+- Optional host access (`http://*/*`, `https://*/*`) — only used if already granted; shortcut add / **Fetch** use the hostname + Google’s favicon CDN by default and do not prompt.

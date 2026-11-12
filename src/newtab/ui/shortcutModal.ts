@@ -35,8 +35,8 @@ export function createShortcutModal(options: {
       <p class="panel-error" id="sc-error"></p>
       <div class="modal-actions">
         <button type="button" class="btn" id="sc-cancel">Cancel</button>
-        <button type="button" class="btn" id="sc-fetch" title="Reads the page title once; Chrome may ask for site access the first time only">
-          Fetch page title
+        <button type="button" class="btn" id="sc-fetch" title="Fill name and icon from the URL (same as auto-fetch)">
+          Fetch
         </button>
         <button type="button" class="btn primary" id="sc-save">Save</button>
       </div>
@@ -89,21 +89,21 @@ export function createShortcutModal(options: {
     }
     urlInput.value = url;
 
-    // Instant defaults first (no permission).
+    // Same path as auto-fill: hostname + favicon CDN, never prompt.
+    // If host access was already granted, upgrade to live page title/icon.
     applyGuess(true);
-    statusEl.textContent =
-      'Using site name + favicon. Fetching page title (Chrome may ask once)…';
+    statusEl.textContent = 'Fetching…';
 
     try {
-      const meta = await fetchPageMeta(url, { allowPrompt: true });
+      const meta = await fetchPageMeta(url, { allowPrompt: false });
       titleInput.value = meta.title;
       iconInput.value = meta.iconUrl;
       statusEl.textContent =
         meta.source === 'page'
           ? 'Loaded page title and icon. You can edit before saving.'
-          : 'Using site name + favicon. Page title unavailable (permission denied or blocked).';
+          : 'Filled from site name + favicon. You can edit before saving.';
     } catch {
-      statusEl.textContent = 'Using site name + favicon. You can edit before saving.';
+      statusEl.textContent = 'Filled from site name + favicon. You can edit before saving.';
     }
   }
 
