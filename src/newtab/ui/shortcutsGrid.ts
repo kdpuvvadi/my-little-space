@@ -1,3 +1,4 @@
+import { iconCandidatesFor } from '../../shared/siteIcons';
 import type { Settings, Shortcut } from '../../shared/types';
 import { plusSvg } from './icons';
 
@@ -39,13 +40,22 @@ export function createShortcutsGrid(options: {
     editBtn.setAttribute('aria-pressed', String(editing));
 
     const items = shortcuts
-      .map(
-        (sc) => `
+      .map((sc) => {
+        const candidates = iconCandidatesFor(sc.url);
+        const primary =
+          sc.iconUrl && !candidates.includes(sc.iconUrl)
+            ? sc.iconUrl
+            : sc.iconUrl || candidates[0] || '';
+        const fallbacks = candidates.filter((u) => u !== primary);
+        const fallbackAttr = fallbacks.length
+          ? ` data-fallbacks="${fallbacks.map(escapeAttr).join('|')}"`
+          : '';
+        return `
       <div class="shortcut-item ${editing ? 'editing' : ''}" data-id="${sc.id}">
         <a class="shortcut-tile" href="${sc.url}" ${editing ? 'tabindex="-1"' : ''}>
           ${
-            sc.iconUrl
-              ? `<img src="${sc.iconUrl}" alt="" loading="lazy" referrerpolicy="no-referrer" />`
+            primary
+              ? `<img src="${escapeAttr(primary)}"${fallbackAttr} alt="" loading="lazy" referrerpolicy="no-referrer" />`
               : `<span>${sc.title.slice(0, 1)}</span>`
           }
         </a>
@@ -54,8 +64,8 @@ export function createShortcutsGrid(options: {
           <button type="button" class="icon-btn edit" title="Edit" data-action="edit">✎</button>
           <button type="button" class="icon-btn danger" title="Delete" data-action="delete">×</button>
         </div>
-      </div>`,
-      )
+      </div>`;
+      })
       .join('');
 
     const addTile = editing
@@ -69,6 +79,19 @@ export function createShortcutsGrid(options: {
       : '';
 
     grid.innerHTML = items + addTile;
+
+    grid.querySelectorAll<HTMLImageElement>('img[data-fallbacks]').forEach((img) => {
+      img.addEventListener('error', () => {
+        const rest = (img.dataset.fallbacks || '').split('|').filter(Boolean);
+        if (!rest.length) {
+          img.replaceWith(document.createTextNode(img.alt || ''));
+          return;
+        }
+        const [next, ...more] = rest;
+        img.dataset.fallbacks = more.join('|');
+        img.src = next;
+      });
+    });
 
     grid.querySelector('.add-shortcut')?.addEventListener('click', () => options.onAdd());
 
@@ -105,4 +128,12 @@ export function createShortcutsGrid(options: {
       render();
     },
   };
+}
+
+function escapeAttr(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }

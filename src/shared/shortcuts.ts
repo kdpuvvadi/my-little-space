@@ -1,3 +1,4 @@
+import { iconCandidatesFor } from './siteIcons';
 import type { Shortcut } from './types';
 
 const ALL_HOSTS = ['http://*/*', 'https://*/*'] as const;
@@ -6,14 +7,9 @@ export function createShortcutId(): string {
   return `sc-${crypto.randomUUID()}`;
 }
 
-/** Public favicon CDN — used as <img src>, no host permission required. */
+/** Best icon URL: Simple Icons / Dashboard Icons → DDG → Google → origin. */
 export function faviconUrlFor(pageUrl: string): string {
-  try {
-    const host = new URL(pageUrl).hostname;
-    return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64`;
-  } catch {
-    return '';
-  }
+  return iconCandidatesFor(pageUrl)[0] ?? '';
 }
 
 export function originFavicon(pageUrl: string): string {
@@ -71,8 +67,8 @@ export async function requestBrowsePermission(): Promise<boolean> {
 }
 
 /**
- * Prefer live HTML title/icon when browse permission is already granted.
- * Otherwise fall back to hostname + favicon CDN (no prompt).
+ * Prefer live HTML title when browse permission is already granted.
+ * Prefer curated icons over scraped favicons for known sites.
  */
 export async function fetchPageMeta(
   pageUrl: string,
@@ -100,11 +96,12 @@ export async function fetchPageMeta(
         typeof response.title === 'string' && response.title.trim()
           ? response.title.trim()
           : guess.title;
-      const iconUrl =
-        typeof response.iconUrl === 'string' && response.iconUrl
+      // Keep curated / CDN icon when we have one; scraped favicons are often worse.
+      const iconUrl = guess.iconUrl ||
+        (typeof response.iconUrl === 'string' && response.iconUrl
           ? response.iconUrl
-          : guess.iconUrl;
-      return { title, iconUrl, source: 'page' };
+          : '');
+      return { title, iconUrl: iconUrl || guess.iconUrl, source: 'page' };
     }
   } catch {
     // fall through
