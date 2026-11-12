@@ -5,6 +5,7 @@ import {
   normalizePageUrl,
 } from '../../shared/shortcuts';
 import { iconUrlToPersist, resolveShortcutIconUrl } from '../../shared/siteIcons';
+import { resolveShortcutTitle } from '../../shared/siteTitles';
 import type { Shortcut } from '../../shared/types';
 
 export type ShortcutModalApi = {
@@ -63,7 +64,9 @@ export function createShortcutModal(options: {
     editing = mode === 'edit' && shortcut ? { ...shortcut } : null;
     titleEl.textContent = mode === 'edit' ? 'Edit shortcut' : 'Add shortcut';
     urlInput.value = shortcut?.url ?? '';
-    titleInput.value = shortcut?.title ?? '';
+    titleInput.value = shortcut
+      ? resolveShortcutTitle(shortcut.url, shortcut.title)
+      : '';
     iconInput.value = shortcut
       ? resolveShortcutIconUrl(shortcut.url, shortcut.iconUrl)
       : '';
@@ -73,7 +76,7 @@ export function createShortcutModal(options: {
     urlInput.focus();
   }
 
-  /** Fill name/icon from hostname + favicon CDN — never prompts. */
+  /** Fill name/icon from curated map / pretty host — never prompts. */
   function applyGuess(overwrite: boolean): void {
     const url = normalizePageUrl(urlInput.value);
     if (!url) return;
@@ -92,13 +95,12 @@ export function createShortcutModal(options: {
     }
     urlInput.value = url;
 
-    // Same path as auto-fill: hostname + favicon CDN, never prompt.
-    // If host access was already granted, upgrade to live page title/icon.
     applyGuess(true);
     statusEl.textContent = 'Fetching…';
 
     try {
-      const meta = await fetchPageMeta(url, { allowPrompt: false });
+      // May prompt once for host access so unknown sites get a real <title>.
+      const meta = await fetchPageMeta(url, { allowPrompt: true });
       titleInput.value = meta.title;
       iconInput.value = meta.iconUrl;
       statusEl.textContent =

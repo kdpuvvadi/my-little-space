@@ -1,4 +1,5 @@
 import { iconCandidatesFor, iconUrlToPersist } from './siteIcons';
+import { displayTitleFor, preferPageTitle } from './siteTitles';
 import type { Shortcut } from './types';
 
 const ALL_HOSTS = ['http://*/*', 'https://*/*'] as const;
@@ -28,20 +29,16 @@ export function normalizePageUrl(raw: string): string {
   return `https://${trimmed}`;
 }
 
+/** @deprecated Prefer displayTitleFor — kept for callers expecting a sync name. */
 export function titleFromUrl(pageUrl: string): string {
-  try {
-    const { hostname } = new URL(pageUrl);
-    return hostname.replace(/^www\./i, '');
-  } catch {
-    return pageUrl;
-  }
+  return displayTitleFor(pageUrl);
 }
 
-/** Instant defaults — no network permission, no Chrome prompt. */
+/** Instant defaults — curated/pretty name + favicon CDN, no permission prompt. */
 export function guessPageMeta(pageUrl: string): { title: string; iconUrl: string } {
   const url = normalizePageUrl(pageUrl);
   return {
-    title: titleFromUrl(url),
+    title: displayTitleFor(url),
     iconUrl: faviconUrlFor(url) || originFavicon(url),
   };
 }
@@ -92,10 +89,9 @@ export async function fetchPageMeta(
       url,
     });
     if (response?.ok) {
-      const title =
-        typeof response.title === 'string' && response.title.trim()
-          ? response.title.trim()
-          : guess.title;
+      const scraped =
+        typeof response.title === 'string' ? response.title.trim() : '';
+      const title = preferPageTitle(url, scraped);
       // Keep curated / CDN icon when we have one; scraped favicons are often worse.
       const iconUrl = guess.iconUrl ||
         (typeof response.iconUrl === 'string' && response.iconUrl

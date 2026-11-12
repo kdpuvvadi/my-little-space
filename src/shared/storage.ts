@@ -1,6 +1,7 @@
 import { createDefaultSettings, DEFAULT_BRANDING } from './defaults';
 import { normalizeProviders } from './providers';
 import { iconUrlToPersist } from './siteIcons';
+import { resolveShortcutTitle } from './siteTitles';
 import type { Branding, Settings, Shortcut } from './types';
 
 const STORAGE_KEY = 'mlsSettings';
@@ -38,10 +39,12 @@ function normalizeShortcut(raw: unknown, index: number): Shortcut | null {
   const url = typeof raw.url === 'string' ? raw.url.trim() : '';
   if (!url) return null;
   const storedIcon = typeof raw.iconUrl === 'string' ? raw.iconUrl : '';
+  const storedTitle = typeof raw.title === 'string' ? raw.title.trim() : '';
   return {
     id: typeof raw.id === 'string' && raw.id ? raw.id : `sc-${index}-${Date.now()}`,
     url,
-    title: typeof raw.title === 'string' && raw.title.trim() ? raw.title.trim() : url,
+    // Upgrade legacy hostname titles (github.com → GitHub).
+    title: resolveShortcutTitle(url, storedTitle || url),
     // Migrate auto CDN icons → empty so they refresh with the icon map.
     iconUrl: iconUrlToPersist(url, storedIcon),
   };

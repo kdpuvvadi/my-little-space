@@ -3,6 +3,7 @@ import {
   isCustomIconUrl,
   resolveShortcutIconUrl,
 } from '../../shared/siteIcons';
+import { resolveShortcutTitle } from '../../shared/siteTitles';
 import type { Settings, Shortcut } from '../../shared/types';
 import { plusSvg } from './icons';
 
@@ -45,6 +46,7 @@ export function createShortcutsGrid(options: {
 
     const items = shortcuts
       .map((sc) => {
+        const title = resolveShortcutTitle(sc.url, sc.title);
         const candidates = iconCandidatesFor(sc.url);
         const primary = resolveShortcutIconUrl(sc.url, sc.iconUrl);
         const fallbacks = isCustomIconUrl(sc.url, sc.iconUrl)
@@ -59,10 +61,10 @@ export function createShortcutsGrid(options: {
           ${
             primary
               ? `<img src="${escapeAttr(primary)}"${fallbackAttr} alt="" loading="lazy" referrerpolicy="no-referrer" />`
-              : `<span>${sc.title.slice(0, 1)}</span>`
+              : `<span>${title.slice(0, 1)}</span>`
           }
         </a>
-        <div class="shortcut-label" title="${sc.title}">${sc.title}</div>
+        <div class="shortcut-label" title="${escapeAttr(title)}">${escapeAttr(title)}</div>
         <div class="shortcut-actions">
           <button type="button" class="icon-btn edit" title="Edit" data-action="edit">✎</button>
           <button type="button" class="icon-btn danger" title="Delete" data-action="delete">×</button>
