@@ -58,13 +58,15 @@ export function createShortcutsGrid(options: {
       )
       .join('');
 
-    const addTile = `
+    const addTile = editing
+      ? `
       <div class="shortcut-item">
         <button type="button" class="shortcut-tile add-shortcut" aria-label="${branding.addShortcutLabel}">
           ${plusSvg}
         </button>
         <div class="shortcut-label">${branding.addShortcutLabel}</div>
-      </div>`;
+      </div>`
+      : '';
 
     grid.innerHTML = items + addTile;
 
