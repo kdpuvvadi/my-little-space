@@ -29,7 +29,14 @@ const KNOWN_BRANDING_KEYS = new Set([
   'showDate',
 ]);
 
-const KNOWN_SHORTCUT_KEYS = new Set(['id', 'url', 'title', 'iconUrl']);
+const KNOWN_SHORTCUT_KEYS = new Set([
+  'id',
+  'url',
+  'title',
+  'iconUrl',
+  'metaFetchedAt',
+  'iconCustom',
+]);
 const KNOWN_PROVIDER_KEYS = new Set(['id', 'name', 'bang', 'searchUrl']);
 
 export type YamlImportResult =
@@ -61,12 +68,16 @@ export function settingsToYaml(settings: Settings): string {
       searchUrl,
     })),
     branding: settings.branding,
-    shortcuts: settings.shortcuts.map(({ id, url, title, iconUrl }) => ({
-      id,
-      url,
-      title,
-      iconUrl,
-    })),
+    shortcuts: settings.shortcuts.map(
+      ({ id, url, title, iconUrl, metaFetchedAt, iconCustom }) => ({
+        id,
+        url,
+        title,
+        iconUrl,
+        metaFetchedAt,
+        iconCustom,
+      }),
+    ),
   };
   return stringify(payload, { lineWidth: 0 });
 }
