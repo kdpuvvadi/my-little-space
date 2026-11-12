@@ -2,5 +2,11 @@ node_modules/
 dist/
 .DS_Store
 *.local
+.env
 .vite/
 design sample
+service/data/
+service/node_modules/
+service/dist/
+*.sqlite
+*.sqlite-journal

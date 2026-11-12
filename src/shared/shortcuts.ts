@@ -1,4 +1,4 @@
-import { iconCandidatesFor, iconUrlToPersist } from './siteIcons';
+import { iconCandidatesFor } from './siteIcons';
 import { displayTitleFor, preferPageTitle } from './siteTitles';
 import type { Shortcut } from './types';
 
@@ -110,6 +110,8 @@ export function newShortcut(partial: {
   url: string;
   title?: string;
   iconUrl?: string;
+  metaFetchedAt?: number;
+  iconCustom?: boolean;
 }): Shortcut {
   const url = normalizePageUrl(partial.url);
   const guess = guessPageMeta(url);
@@ -117,7 +119,8 @@ export function newShortcut(partial: {
     id: createShortcutId(),
     url,
     title: partial.title?.trim() || guess.title,
-    // Empty = auto; only a user custom URL is stored.
-    iconUrl: iconUrlToPersist(url, partial.iconUrl ?? ''),
+    iconUrl: (partial.iconUrl ?? guess.iconUrl).trim(),
+    metaFetchedAt: partial.metaFetchedAt ?? 0,
+    iconCustom: partial.iconCustom === true,
   };
 }

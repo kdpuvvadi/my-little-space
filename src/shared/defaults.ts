@@ -54,6 +54,8 @@ export function createDefaultSettings(): Settings {
     mode: 'builtin',
     customUrl: '',
     theme: 'light',
+    // Empty means “use BUILD_META_SERVICE_URL”; set a value to override.
+    metaServiceUrl: '',
     providers,
     defaultProviderId: 'google',
     enabledProviderIds: providers.map((p) => p.id),

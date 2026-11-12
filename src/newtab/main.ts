@@ -1,3 +1,4 @@
+import { resolveMetaServiceUrl } from '../shared/buildConfig';
 import { fetchCatFact } from '../shared/catFact';
 import { loadSettings, saveSettings, updateSettings } from '../shared/storage';
 import { applyTheme, watchSystemTheme } from '../shared/theme';
@@ -227,6 +228,7 @@ async function main(): Promise<void> {
   });
 
   const shortcutModal = createShortcutModal({
+    getMetaServiceUrl: () => resolveMetaServiceUrl(settings.metaServiceUrl),
     onSave: async (shortcut: Shortcut) => {
       const existing = settings.shortcuts.findIndex((s) => s.id === shortcut.id);
       const shortcuts =

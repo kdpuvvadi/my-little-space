@@ -779,6 +779,40 @@ a {
   text-transform: uppercase;
 }
 
+.advanced-group {
+  margin: 0.5rem 0 1.35rem;
+  border-top: 1px solid var(--border, rgba(0, 0, 0, 0.08));
+  padding-top: 0.85rem;
+}
+
+.advanced-group > summary {
+  cursor: pointer;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  color: var(--muted-2);
+  text-transform: uppercase;
+  list-style: none;
+  user-select: none;
+}
+
+.advanced-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.advanced-group > summary::before {
+  content: '▸ ';
+  display: inline-block;
+  transition: transform 0.12s ease;
+}
+
+.advanced-group[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.advanced-group[open] > summary {
+  margin-bottom: 0.75rem;
+}
+
 .field {
   display: flex;
   flex-direction: column;

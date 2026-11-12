@@ -6,6 +6,7 @@ const KNOWN_TOP_KEYS = new Set([
   'mode',
   'customUrl',
   'theme',
+  'metaServiceUrl',
   'providers',
   'defaultProviderId',
   'enabledProviderIds',
@@ -29,7 +30,14 @@ const KNOWN_BRANDING_KEYS = new Set([
   'showDate',
 ]);
 
-const KNOWN_SHORTCUT_KEYS = new Set(['id', 'url', 'title', 'iconUrl']);
+const KNOWN_SHORTCUT_KEYS = new Set([
+  'id',
+  'url',
+  'title',
+  'iconUrl',
+  'metaFetchedAt',
+  'iconCustom',
+]);
 const KNOWN_PROVIDER_KEYS = new Set(['id', 'name', 'bang', 'searchUrl']);
 
 export type YamlImportResult =
@@ -51,6 +59,7 @@ export function settingsToYaml(settings: Settings): string {
     mode: settings.mode,
     customUrl: settings.customUrl,
     theme: settings.theme,
+    metaServiceUrl: settings.metaServiceUrl,
     defaultProviderId: settings.defaultProviderId,
     enabledProviderIds: settings.enabledProviderIds,
     selectedProviderId: settings.selectedProviderId,
@@ -61,12 +70,16 @@ export function settingsToYaml(settings: Settings): string {
       searchUrl,
     })),
     branding: settings.branding,
-    shortcuts: settings.shortcuts.map(({ id, url, title, iconUrl }) => ({
-      id,
-      url,
-      title,
-      iconUrl,
-    })),
+    shortcuts: settings.shortcuts.map(
+      ({ id, url, title, iconUrl, metaFetchedAt, iconCustom }) => ({
+        id,
+        url,
+        title,
+        iconUrl,
+        metaFetchedAt,
+        iconCustom,
+      }),
+    ),
   };
   return stringify(payload, { lineWidth: 0 });
 }

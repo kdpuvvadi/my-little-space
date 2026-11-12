@@ -1,3 +1,4 @@
+import { BUILD_META_SERVICE_URL } from '../../shared/buildConfig';
 import { createDefaultSettings, DEFAULT_PROVIDERS } from '../../shared/defaults';
 import { newCustomProvider, normalizeBang } from '../../shared/providers';
 import type { Branding, SearchProvider, Settings, ThemeMode } from '../../shared/types';
@@ -195,6 +196,23 @@ export function createSettingsPanel(options: {
         <p class="panel-error" id="yamlError"></p>
         <p class="panel-note" id="yamlNote"></p>
       </div>
+
+      <details class="advanced-group">
+        <summary>Advanced</summary>
+        <div class="field">
+          <label for="metaServiceUrl">Site meta helper URL</label>
+          <input type="url" id="metaServiceUrl" value="${escapeAttr(
+            !s.metaServiceUrl || s.metaServiceUrl === BUILD_META_SERVICE_URL
+              ? ''
+              : s.metaServiceUrl,
+          )}" placeholder="${escapeAttr(BUILD_META_SERVICE_URL || 'https://meta.example.com')}" />
+          <p class="panel-note">${
+            BUILD_META_SERVICE_URL
+              ? `Leave empty for the default (${escapeAttr(BUILD_META_SERVICE_URL)}), or enter a custom URL.`
+              : 'Leave empty for the built-in default, or enter a custom URL.'
+          }</p>
+        </div>
+      </details>
     `;
 
     bindBrandingFields();
@@ -202,6 +220,7 @@ export function createSettingsPanel(options: {
     bindModeFields();
     bindSearchFields();
     bindBackup();
+    bindAdvancedFields();
   }
 
   function textField(id: string, label: string, value: string): string {
@@ -455,6 +474,14 @@ export function createSettingsPanel(options: {
     });
     body.querySelector('#customUrl')?.addEventListener('change', async (e) => {
       await patchSettings({ customUrl: (e.target as HTMLInputElement).value.trim() });
+    });
+  }
+
+  function bindAdvancedFields(): void {
+    body.querySelector('#metaServiceUrl')?.addEventListener('change', async (e) => {
+      await patchSettings({
+        metaServiceUrl: (e.target as HTMLInputElement).value.trim(),
+      });
     });
   }
 

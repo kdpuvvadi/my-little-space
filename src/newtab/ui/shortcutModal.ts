@@ -1,10 +1,9 @@
 import {
-  fetchPageMeta,
   guessPageMeta,
   newShortcut,
   normalizePageUrl,
 } from '../../shared/shortcuts';
-import { iconUrlToPersist, resolveShortcutIconUrl } from '../../shared/siteIcons';
+import { fetchSiteMeta, isMetaExpired } from '../../shared/siteMetaClient';
 import { resolveShortcutTitle } from '../../shared/siteTitles';
 import type { Shortcut } from '../../shared/types';
 
@@ -15,6 +14,7 @@ export type ShortcutModalApi = {
 
 export function createShortcutModal(options: {
   onSave: (shortcut: Shortcut) => Promise<void> | void;
+  getMetaServiceUrl: () => string;
 }): ShortcutModalApi {
   const root = document.createElement('div');
   root.className = 'modal-root';
@@ -37,8 +37,8 @@ export function createShortcutModal(options: {
       <p class="panel-error" id="sc-error"></p>
       <div class="modal-actions">
         <button type="button" class="btn" id="sc-cancel">Cancel</button>
-        <button type="button" class="btn" id="sc-fetch" title="Fill name and icon from the URL (same as auto-fetch)">
-          Fetch
+        <button type="button" class="btn" id="sc-update" title="Refresh name and icon from the site meta helper">
+          Update
         </button>
         <button type="button" class="btn primary" id="sc-save">Save</button>
       </div>
@@ -52,12 +52,18 @@ export function createShortcutModal(options: {
   const iconInput = root.querySelector('#sc-icon') as HTMLInputElement;
   const statusEl = root.querySelector('#sc-status') as HTMLElement;
   const errorEl = root.querySelector('#sc-error') as HTMLElement;
+  const updateBtn = root.querySelector('#sc-update') as HTMLButtonElement;
 
   let editing: Shortcut | null = null;
+  /** Last helper/local meta applied in this modal session (for iconCustom detection). */
+  let lastFetchedIcon = '';
+  let lastMetaFetchedAt = 0;
 
   function close(): void {
     root.classList.remove('open');
     editing = null;
+    lastFetchedIcon = '';
+    lastMetaFetchedAt = 0;
   }
 
   function open(mode: 'create' | 'edit', shortcut?: Shortcut): void {
@@ -67,53 +73,67 @@ export function createShortcutModal(options: {
     titleInput.value = shortcut
       ? resolveShortcutTitle(shortcut.url, shortcut.title)
       : '';
-    iconInput.value = shortcut
-      ? resolveShortcutIconUrl(shortcut.url, shortcut.iconUrl)
-      : '';
+    iconInput.value = shortcut?.iconUrl ?? '';
+    lastFetchedIcon = shortcut && !shortcut.iconCustom ? shortcut.iconUrl : '';
+    lastMetaFetchedAt = shortcut?.metaFetchedAt ?? 0;
     statusEl.textContent = '';
     errorEl.textContent = '';
+    updateBtn.textContent = mode === 'edit' ? 'Update' : 'Fetch';
     root.classList.add('open');
     urlInput.focus();
   }
 
-  /** Fill name/icon from curated map / pretty host — never prompts. */
   function applyGuess(overwrite: boolean): void {
     const url = normalizePageUrl(urlInput.value);
     if (!url) return;
     urlInput.value = url;
     const guess = guessPageMeta(url);
     if (overwrite || !titleInput.value.trim()) titleInput.value = guess.title;
-    if (overwrite || !iconInput.value.trim()) iconInput.value = guess.iconUrl;
+    if (overwrite || !iconInput.value.trim()) {
+      iconInput.value = guess.iconUrl;
+      lastFetchedIcon = guess.iconUrl;
+    }
   }
 
-  async function fetchInfo(): Promise<void> {
+  async function applySiteMeta(force: boolean): Promise<boolean> {
     errorEl.textContent = '';
     const url = normalizePageUrl(urlInput.value);
     if (!url) {
       errorEl.textContent = 'Enter a URL first.';
-      return;
+      return false;
     }
     urlInput.value = url;
 
-    applyGuess(true);
-    statusEl.textContent = 'Fetching…';
-
-    try {
-      // May prompt once for host access so unknown sites get a real <title>.
-      const meta = await fetchPageMeta(url, { allowPrompt: true });
-      titleInput.value = meta.title;
-      iconInput.value = meta.iconUrl;
-      statusEl.textContent =
-        meta.source === 'page'
-          ? 'Loaded page title and icon. You can edit before saving.'
-          : 'Filled from site name + favicon. You can edit before saving.';
-    } catch {
-      statusEl.textContent = 'Filled from site name + favicon. You can edit before saving.';
+    if (
+      !force &&
+      editing &&
+      !isMetaExpired(editing.metaFetchedAt) &&
+      !isMetaExpired(lastMetaFetchedAt)
+    ) {
+      statusEl.textContent = 'Name and icon are still fresh (under 30 days).';
+      return false;
     }
+
+    statusEl.textContent = 'Fetching…';
+    const meta = await fetchSiteMeta(url, options.getMetaServiceUrl());
+    titleInput.value = meta.title;
+    if (!editing?.iconCustom) {
+      iconInput.value = meta.icon;
+      lastFetchedIcon = meta.icon;
+    }
+    lastMetaFetchedAt = Date.now();
+    statusEl.textContent =
+      meta.source === 'service'
+        ? 'Loaded from site meta helper. You can edit before saving.'
+        : 'Filled locally (helper unavailable). You can edit before saving.';
+    return true;
   }
 
   root.querySelector('#sc-cancel')?.addEventListener('click', close);
-  root.querySelector('#sc-fetch')?.addEventListener('click', () => void fetchInfo());
+  updateBtn.addEventListener('click', () => {
+    // Create: always fetch. Edit: only when expired (force=false).
+    void applySiteMeta(!editing);
+  });
   root.addEventListener('click', (e) => {
     if (e.target === root) close();
   });
@@ -127,15 +147,37 @@ export function createShortcutModal(options: {
     }
     urlInput.value = url;
 
-    // Fill blanks locally — never request permission on Save.
+    // New shortcuts always resolve meta once on save if not yet fetched this session.
+    if (!editing && !lastMetaFetchedAt) {
+      await applySiteMeta(true);
+    }
+
     const guess = guessPageMeta(url);
     const title = titleInput.value.trim() || guess.title;
-    // Store custom URLs only; auto icons stay empty and refresh from the map.
-    const iconUrl = iconUrlToPersist(url, iconInput.value.trim() || guess.iconUrl);
+    const iconUrl = iconInput.value.trim() || lastFetchedIcon || guess.iconUrl;
+    // Custom when the user diverged from the last auto-fetched icon.
+    const iconCustom = lastFetchedIcon
+      ? iconUrl !== lastFetchedIcon
+      : editing?.iconCustom === true;
+
+    const metaFetchedAt = lastMetaFetchedAt || editing?.metaFetchedAt || Date.now();
 
     const shortcut = editing
-      ? { ...editing, url, title, iconUrl }
-      : newShortcut({ url, title, iconUrl });
+      ? {
+          ...editing,
+          url,
+          title,
+          iconUrl,
+          metaFetchedAt,
+          iconCustom,
+        }
+      : newShortcut({
+          url,
+          title,
+          iconUrl,
+          metaFetchedAt,
+          iconCustom,
+        });
 
     await options.onSave(shortcut);
     close();
