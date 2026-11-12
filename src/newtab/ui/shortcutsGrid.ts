@@ -19,6 +19,7 @@ export function createShortcutsGrid(options: {
   onUpdateMeta: () => void | Promise<void>;
   onEditShortcut: (shortcut: Shortcut) => void;
   onDeleteShortcut: (id: string) => void;
+  onReorder: (orderedIds: string[]) => void | Promise<void>;
 }): ShortcutsGridApi {
   let settings: Settings | null = null;
   let editing = false;
@@ -72,12 +73,14 @@ export function createShortcutsGrid(options: {
           : '';
         const letter = escapeAttr(title.slice(0, 1).toUpperCase());
         return `
-      <div class="shortcut-item ${editing ? 'editing' : ''}" data-id="${sc.id}">
+      <div class="shortcut-item ${editing ? 'editing' : ''}" data-id="${sc.id}"${
+          editing ? ' draggable="true"' : ''
+        }>
         <a class="shortcut-tile" href="${sc.url}" ${editing ? 'tabindex="-1"' : ''}>
           <span class="shortcut-letter" aria-hidden="true">${letter}</span>
           ${
             primary
-              ? `<img src="${escapeAttr(primary)}"${fallbackAttr} alt="" decoding="async" referrerpolicy="no-referrer" />`
+              ? `<img src="${escapeAttr(primary)}"${fallbackAttr} alt="" decoding="async" referrerpolicy="no-referrer" draggable="false" />`
               : ''
           }
         </a>
@@ -92,7 +95,7 @@ export function createShortcutsGrid(options: {
 
     const addTile = editing
       ? `
-      <div class="shortcut-item">
+      <div class="shortcut-item add-tile" data-add="1">
         <button type="button" class="shortcut-tile add-shortcut" aria-label="${branding.addShortcutLabel}">
           ${plusSvg}
         </button>
@@ -127,28 +130,85 @@ export function createShortcutsGrid(options: {
     grid.querySelector('.add-shortcut')?.addEventListener('click', () => options.onAdd());
 
     grid.querySelectorAll('.shortcut-item[data-id]').forEach((el) => {
-      const id = (el as HTMLElement).dataset.id!;
+      const item = el as HTMLElement;
+      const id = item.dataset.id!;
       const shortcut = shortcuts.find((s) => s.id === id);
       if (!shortcut) return;
 
-      el.querySelector('[data-action="edit"]')?.addEventListener('click', (e) => {
+      item.querySelector('[data-action="edit"]')?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
         options.onEditShortcut(shortcut);
       });
-      el.querySelector('[data-action="delete"]')?.addEventListener('click', (e) => {
+      item.querySelector('[data-action="delete"]')?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
         options.onDeleteShortcut(id);
       });
 
       if (editing) {
-        el.querySelector('.shortcut-tile')?.addEventListener('click', (e) => {
+        // Pencil/delete for edit; drag the tile to reorder.
+        item.querySelector('.shortcut-tile')?.addEventListener('click', (e) => {
           e.preventDefault();
-          options.onEditShortcut(shortcut);
         });
+        bindDragReorder(item);
       }
     });
+  }
+
+  function bindDragReorder(item: HTMLElement): void {
+    item.addEventListener('dragstart', (e) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('.shortcut-actions, .add-tile')) {
+        e.preventDefault();
+        return;
+      }
+      item.classList.add('dragging');
+      e.dataTransfer?.setData('text/plain', item.dataset.id || '');
+      if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+    });
+
+    item.addEventListener('dragend', () => {
+      item.classList.remove('dragging');
+      grid.querySelectorAll('.shortcut-item.drag-over').forEach((el) => {
+        el.classList.remove('drag-over');
+      });
+    });
+
+    item.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+      const dragging = grid.querySelector('.shortcut-item.dragging');
+      if (!dragging || dragging === item) return;
+
+      const rect = item.getBoundingClientRect();
+      const before = e.clientX < rect.left + rect.width / 2;
+      if (before) {
+        grid.insertBefore(dragging, item);
+      } else {
+        grid.insertBefore(dragging, item.nextSibling);
+      }
+    });
+
+    item.addEventListener('drop', (e) => {
+      e.preventDefault();
+      persistOrderFromDom();
+    });
+  }
+
+  function persistOrderFromDom(): void {
+    const orderedIds = [...grid.querySelectorAll<HTMLElement>('.shortcut-item[data-id]')]
+      .map((el) => el.dataset.id)
+      .filter((id): id is string => Boolean(id));
+    if (!orderedIds.length || !settings) return;
+    const current = settings.shortcuts.map((s) => s.id);
+    if (
+      orderedIds.length === current.length &&
+      orderedIds.every((id, i) => id === current[i])
+    ) {
+      return;
+    }
+    void options.onReorder(orderedIds);
   }
 
   return {

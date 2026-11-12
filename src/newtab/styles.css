@@ -569,6 +569,15 @@ a {
   position: relative;
 }
 
+.shortcut-item.editing[draggable='true'] {
+  cursor: grab;
+}
+
+.shortcut-item.editing.dragging {
+  opacity: 0.45;
+  cursor: grabbing;
+}
+
 .shortcut-tile {
   width: 56px;
   height: 56px;

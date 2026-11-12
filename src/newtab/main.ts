@@ -253,6 +253,18 @@ async function main(): Promise<void> {
       shortcutsGrid.setSettings(settings, editingShortcuts);
       settingsPanel.setSettings(settings);
     },
+    onReorder: async (orderedIds) => {
+      const byId = new Map(settings.shortcuts.map((s) => [s.id, s]));
+      const reordered = orderedIds
+        .map((id) => byId.get(id))
+        .filter((s): s is Shortcut => Boolean(s));
+      for (const s of settings.shortcuts) {
+        if (!orderedIds.includes(s.id)) reordered.push(s);
+      }
+      settings = await updateSettings({ shortcuts: reordered });
+      shortcutsGrid.setSettings(settings, editingShortcuts);
+      settingsPanel.setSettings(settings);
+    },
   });
 
   const shortcutModal = createShortcutModal({
