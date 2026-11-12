@@ -251,8 +251,10 @@ export function createShortcutsGrid(options: {
     item.addEventListener('pointerdown', (e) => {
       if (e.button !== 0) return;
       const target = e.target as HTMLElement | null;
-      if (target?.closest('.shortcut-actions, button, a')) return;
+      // Only ignore edit/delete controls — the tile itself is an <a>, which must still lift.
+      if (target?.closest('.shortcut-actions')) return;
 
+      e.preventDefault();
       pointerId = e.pointerId;
       startX = lastX = e.clientX;
       startY = lastY = e.clientY;

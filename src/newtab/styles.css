@@ -572,19 +572,20 @@ a {
 
 .shortcuts-grid.is-editing .shortcut-item.editing:not(.add-tile) {
   cursor: grab;
-  animation: shortcut-jiggle 0.28s ease-in-out infinite alternate;
+  animation: shortcut-jiggle 0.22s ease-in-out infinite alternate;
+  transform-origin: 50% 40%;
 }
 
 .shortcuts-grid.is-editing .shortcut-item.editing:nth-child(2n) {
-  animation-delay: -0.08s;
+  animation-delay: -0.05s;
 }
 
 .shortcuts-grid.is-editing .shortcut-item.editing:nth-child(3n) {
-  animation-delay: -0.16s;
+  animation-delay: -0.11s;
 }
 
 .shortcuts-grid.is-editing .shortcut-item.editing:nth-child(4n) {
-  animation-delay: -0.04s;
+  animation-delay: -0.02s;
 }
 
 .shortcuts-grid.is-reordering .shortcut-item.editing {
@@ -625,16 +626,26 @@ a {
 
 @keyframes shortcut-jiggle {
   from {
-    transform: rotate(-1.2deg);
+    transform: rotate(-2.8deg) translateX(-0.5px);
   }
   to {
-    transform: rotate(1.2deg);
+    transform: rotate(2.8deg) translateX(0.5px);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* Keep a light wiggle so edit-mode affordance stays visible. */
   .shortcuts-grid.is-editing .shortcut-item.editing:not(.add-tile) {
-    animation: none;
+    animation-duration: 0.45s;
+  }
+
+  @keyframes shortcut-jiggle {
+    from {
+      transform: rotate(-1.2deg);
+    }
+    to {
+      transform: rotate(1.2deg);
+    }
   }
 }
 
