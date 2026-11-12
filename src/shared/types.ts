@@ -39,6 +39,8 @@ export type Settings = {
   mode: NewTabMode;
   customUrl: string;
   theme: ThemeMode;
+  /** Site-meta helper base URL (empty = local resolve only). */
+  metaServiceUrl: string;
   providers: SearchProvider[];
   defaultProviderId: string;
   enabledProviderIds: string[];

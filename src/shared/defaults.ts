@@ -54,6 +54,7 @@ export function createDefaultSettings(): Settings {
     mode: 'builtin',
     customUrl: '',
     theme: 'light',
+    metaServiceUrl: '',
     providers,
     defaultProviderId: 'google',
     enabledProviderIds: providers.map((p) => p.id),
