@@ -2,7 +2,7 @@ import { serve } from '@hono/node-server';
 import { app } from './app.js';
 import { getDb } from './db.js';
 
-const port = Number(process.env.PORT || 8787);
+const port = Number(process.env.PORT || 3847);
 
 getDb();
 

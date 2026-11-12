@@ -5,9 +5,9 @@ services:
       dockerfile: Dockerfile
     image: mls-site-meta:local
     ports:
-      - "8787:8787"
+      - "3847:3847"
     environment:
-      PORT: "8787"
+      PORT: "3847"
       DATA_DIR: /data
       DATABASE_PATH: /data/meta.sqlite
     volumes:

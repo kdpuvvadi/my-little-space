@@ -24,7 +24,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV DATA_DIR=/data
 ENV DATABASE_PATH=/data/meta.sqlite
-ENV PORT=8787
+ENV PORT=3847
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates curl gnupg \
@@ -40,6 +40,6 @@ COPY --from=build --chown=app:app /app/node_modules ./node_modules
 COPY --from=build --chown=app:app /app/dist ./dist
 
 USER app
-EXPOSE 8787
+EXPOSE 3847
 VOLUME ["/data"]
 CMD ["node", "dist/index.js"]
