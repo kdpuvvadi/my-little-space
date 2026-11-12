@@ -10,19 +10,26 @@ export type SiteIconRef =
 
 /** Host (no www.) → preferred icon pack entry. */
 export const SITE_ICON_MAP: Record<string, SiteIconRef> = {
-  // Google
+  // Google — Dashboard Icons use names like `gmail`, `google-docs` (not `google-gmail`)
   'google.com': { source: 'simple', id: 'google' },
-  'mail.google.com': { source: 'dashboard', id: 'google-gmail' },
-  'gmail.com': { source: 'dashboard', id: 'google-gmail' },
+  'mail.google.com': { source: 'dashboard', id: 'gmail' },
+  'gmail.com': { source: 'dashboard', id: 'gmail' },
   'drive.google.com': { source: 'dashboard', id: 'google-drive' },
   'docs.google.com': { source: 'dashboard', id: 'google-docs' },
   'sheets.google.com': { source: 'dashboard', id: 'google-sheets' },
   'slides.google.com': { source: 'dashboard', id: 'google-slides' },
+  'forms.google.com': { source: 'dashboard', id: 'google-forms' },
   'calendar.google.com': { source: 'dashboard', id: 'google-calendar' },
   'meet.google.com': { source: 'dashboard', id: 'google-meet' },
-  'maps.google.com': { source: 'simple', id: 'googlemaps' },
-  'translate.google.com': { source: 'simple', id: 'googletranslate' },
+  'keep.google.com': { source: 'dashboard', id: 'google-keep' },
+  'contacts.google.com': { source: 'dashboard', id: 'google-contacts' },
+  'chat.google.com': { source: 'dashboard', id: 'google-chat' },
+  'classroom.google.com': { source: 'dashboard', id: 'google-classroom' },
+  'maps.google.com': { source: 'dashboard', id: 'google-maps' },
+  'translate.google.com': { source: 'dashboard', id: 'google-translate' },
   'photos.google.com': { source: 'dashboard', id: 'google-photos' },
+  'news.google.com': { source: 'dashboard', id: 'google-news' },
+  'play.google.com': { source: 'simple', id: 'googleplay' },
   'youtube.com': { source: 'simple', id: 'youtube' },
   'youtu.be': { source: 'simple', id: 'youtube' },
   'music.youtube.com': { source: 'simple', id: 'youtubemusic' },
@@ -30,11 +37,11 @@ export const SITE_ICON_MAP: Record<string, SiteIconRef> = {
   // Microsoft
   'microsoft.com': { source: 'simple', id: 'microsoft' },
   'office.com': { source: 'simple', id: 'microsoftoffice' },
-  'outlook.com': { source: 'dashboard', id: 'microsoft-outlook' },
-  'outlook.live.com': { source: 'dashboard', id: 'microsoft-outlook' },
-  'outlook.office.com': { source: 'dashboard', id: 'microsoft-outlook' },
-  'onedrive.live.com': { source: 'dashboard', id: 'microsoft-onedrive' },
-  'onedrive.com': { source: 'dashboard', id: 'microsoft-onedrive' },
+  'outlook.com': { source: 'dashboard', id: 'outlook' },
+  'outlook.live.com': { source: 'dashboard', id: 'outlook' },
+  'outlook.office.com': { source: 'dashboard', id: 'outlook' },
+  'onedrive.live.com': { source: 'dashboard', id: 'onedrive' },
+  'onedrive.com': { source: 'dashboard', id: 'onedrive' },
   'teams.microsoft.com': { source: 'dashboard', id: 'microsoft-teams' },
   'github.com': { source: 'simple', id: 'github' },
   'gist.github.com': { source: 'simple', id: 'github' },
@@ -253,10 +260,16 @@ export function iconUrlForRef(ref: SiteIconRef): string {
   return ref.source === 'simple' ? simpleIconsUrl(ref.id) : dashboardIconsUrl(ref.id);
 }
 
-/** Walk host and parents: mail.google.com → google.com */
-export function lookupSiteIcon(hostname: string): SiteIconRef | undefined {
+/** Exact host only (no parent walk). */
+export function lookupExactSiteIcon(hostname: string): SiteIconRef | undefined {
   const host = hostname.replace(/^www\./i, '').toLowerCase();
-  if (SITE_ICON_MAP[host]) return SITE_ICON_MAP[host];
+  return SITE_ICON_MAP[host];
+}
+
+/** Parent hosts such as google.com — used only as a late fallback. */
+export function lookupParentSiteIcon(hostname: string): SiteIconRef | undefined {
+  const host = hostname.replace(/^www\./i, '').toLowerCase();
+  if (SITE_ICON_MAP[host]) return undefined;
 
   const parts = host.split('.');
   for (let i = 1; i < parts.length - 1; i++) {
@@ -266,12 +279,81 @@ export function lookupSiteIcon(hostname: string): SiteIconRef | undefined {
   return undefined;
 }
 
+export function lookupSiteIcon(hostname: string): SiteIconRef | undefined {
+  return lookupExactSiteIcon(hostname) ?? lookupParentSiteIcon(hostname);
+}
+
 export function hostnameOf(pageUrl: string): string {
   try {
     return new URL(pageUrl).hostname.replace(/^www\./i, '').toLowerCase();
   } catch {
     return '';
   }
+}
+
+/** Google Docs/Sheets/Slides share docs.google.com — pick by path. */
+export function googleAppIconFromPath(pageUrl: string): SiteIconRef | undefined {
+  try {
+    const u = new URL(pageUrl);
+    const host = u.hostname.replace(/^www\./i, '').toLowerCase();
+    const path = u.pathname.toLowerCase();
+
+    if (host === 'mail.google.com' || host === 'gmail.com') {
+      return { source: 'dashboard', id: 'gmail' };
+    }
+    if (host === 'drive.google.com') {
+      return { source: 'dashboard', id: 'google-drive' };
+    }
+    if (host === 'calendar.google.com') {
+      return { source: 'dashboard', id: 'google-calendar' };
+    }
+    if (host === 'meet.google.com') {
+      return { source: 'dashboard', id: 'google-meet' };
+    }
+    if (host === 'photos.google.com') {
+      return { source: 'dashboard', id: 'google-photos' };
+    }
+    if (host === 'keep.google.com') {
+      return { source: 'dashboard', id: 'google-keep' };
+    }
+    if (host === 'contacts.google.com') {
+      return { source: 'dashboard', id: 'google-contacts' };
+    }
+    if (host === 'chat.google.com') {
+      return { source: 'dashboard', id: 'google-chat' };
+    }
+    if (host === 'classroom.google.com') {
+      return { source: 'dashboard', id: 'google-classroom' };
+    }
+    if (host === 'sheets.google.com') {
+      return { source: 'dashboard', id: 'google-sheets' };
+    }
+    if (host === 'slides.google.com') {
+      return { source: 'dashboard', id: 'google-slides' };
+    }
+    if (host === 'forms.google.com') {
+      return { source: 'dashboard', id: 'google-forms' };
+    }
+
+    if (host === 'docs.google.com') {
+      if (path.includes('/spreadsheets')) {
+        return { source: 'dashboard', id: 'google-sheets' };
+      }
+      if (path.includes('/presentation')) {
+        return { source: 'dashboard', id: 'google-slides' };
+      }
+      if (path.includes('/forms')) {
+        return { source: 'dashboard', id: 'google-forms' };
+      }
+      if (path.includes('/document') || path === '/' || path === '') {
+        return { source: 'dashboard', id: 'google-docs' };
+      }
+      return { source: 'dashboard', id: 'google-docs' };
+    }
+  } catch {
+    // ignore
+  }
+  return undefined;
 }
 
 const SKIP_LABELS = new Set([
@@ -292,7 +374,6 @@ const SKIP_LABELS = new Set([
   'accounts',
   'my',
   'open',
-  'docs',
   'blog',
   'shop',
   'store',
@@ -302,8 +383,8 @@ const SKIP_LABELS = new Set([
 ]);
 
 /**
- * Guess Simple Icons / Dashboard Icons ids from a hostname when not in the map.
- * e.g. mail.google.com → google, gmail, google-gmail, …
+ * Guess icon ids from hostname. Specific product names before umbrella brand.
+ * e.g. mail.google.com → gmail, google-mail, … then google
  */
 export function guessIconIds(hostname: string): string[] {
   const host = hostname.replace(/^www\./i, '').toLowerCase();
@@ -324,54 +405,102 @@ export function guessIconIds(hostname: string): string[] {
   const brand = brandLabels[brandLabels.length - 1];
   const subs = brandLabels.slice(0, -1).filter((l) => !SKIP_LABELS.has(l));
 
-  const ids: string[] = [];
-  const add = (id: string) => {
+  const specific: string[] = [];
+  const brandIds: string[] = [];
+  const addSpecific = (id: string) => {
     const clean = id.toLowerCase().replace(/[^a-z0-9-]/g, '');
-    if (clean && !ids.includes(clean)) ids.push(clean);
+    if (clean && !specific.includes(clean) && !brandIds.includes(clean)) {
+      specific.push(clean);
+    }
+  };
+  const addBrand = (id: string) => {
+    const clean = id.toLowerCase().replace(/[^a-z0-9-]/g, '');
+    if (clean && !specific.includes(clean) && !brandIds.includes(clean)) {
+      brandIds.push(clean);
+    }
   };
 
-  add(brand);
-  add(brand.replace(/-/g, ''));
-
   for (const sub of subs) {
-    add(sub);
-    add(sub.replace(/-/g, ''));
-    add(`${brand}-${sub}`);
-    add(`${sub}-${brand}`);
-    add(`${brand}${sub}`);
-    add(`${sub}${brand}`);
+    addSpecific(sub);
+    addSpecific(`${brand}-${sub}`);
+    addSpecific(`${sub}-${brand}`);
+    addSpecific(`${brand}${sub}`);
+    addSpecific(`${sub}${brand}`);
   }
 
-  // mail.google.com → gmail-style guesses
-  if (subs.includes('mail') || subs.includes('email')) {
-    add('gmail');
-    add(`${brand}-mail`);
-    add(`${brand}-gmail`);
+  if (subs.includes('mail') || subs.includes('email') || host.startsWith('mail.')) {
+    addSpecific('gmail');
+    addSpecific('google-mail');
+  }
+  if (subs.includes('docs') || host.startsWith('docs.')) {
+    addSpecific('google-docs');
+    addSpecific('docs');
+  }
+  if (subs.includes('drive') || host.startsWith('drive.')) {
+    addSpecific('google-drive');
+    addSpecific('drive');
+  }
+  if (subs.includes('sheets') || host.startsWith('sheets.')) {
+    addSpecific('google-sheets');
+    addSpecific('sheets');
+  }
+  if (subs.includes('slides') || host.startsWith('slides.')) {
+    addSpecific('google-slides');
+    addSpecific('slides');
+  }
+  if (subs.includes('calendar') || host.startsWith('calendar.')) {
+    addSpecific('google-calendar');
+    addSpecific('calendar');
+  }
+  if (subs.includes('meet') || host.startsWith('meet.')) {
+    addSpecific('google-meet');
+    addSpecific('meet');
+  }
+  if (subs.includes('photos') || host.startsWith('photos.')) {
+    addSpecific('google-photos');
+    addSpecific('photos');
+  }
+  if (subs.includes('keep') || host.startsWith('keep.')) {
+    addSpecific('google-keep');
+    addSpecific('keep');
   }
 
-  return ids;
+  addBrand(brand);
+  addBrand(brand.replace(/-/g, ''));
+
+  return [...specific, ...brandIds];
 }
 
 /**
  * Ordered icon URLs:
- * curated map → guessed Simple Icons → guessed Dashboard Icons → DDG → Google → origin.
- * Broken CDN URLs are skipped at render time via <img> onerror fallbacks.
+ * path/exact curated → Dashboard guesses → Simple guesses → parent brand → DDG → Google → origin.
  */
 export function iconCandidatesFor(pageUrl: string): string[] {
   const host = hostnameOf(pageUrl);
   const urls: string[] = [];
+  const pushRef = (ref: SiteIconRef | undefined) => {
+    if (ref) urls.push(iconUrlForRef(ref));
+  };
 
-  const curated = host ? lookupSiteIcon(host) : undefined;
-  if (curated) urls.push(iconUrlForRef(curated));
+  // Path-aware Google apps (docs/sheets/slides share docs.google.com)
+  pushRef(googleAppIconFromPath(pageUrl));
+
+  const exact = host ? lookupExactSiteIcon(host) : undefined;
+  if (exact) pushRef(exact);
 
   if (host) {
     const guesses = guessIconIds(host);
-    for (const id of guesses) {
-      urls.push(simpleIconsUrl(id));
-    }
+    // Prefer Dashboard Icons for product apps, then Simple Icons
     for (const id of guesses) {
       urls.push(dashboardIconsUrl(id));
     }
+    for (const id of guesses) {
+      urls.push(simpleIconsUrl(id));
+    }
+
+    // Parent brand (e.g. google.com) only after product-specific Dashboard/Simple attempts
+    pushRef(lookupParentSiteIcon(host));
+
     urls.push(duckDuckGoIconUrl(host));
     urls.push(googleFaviconUrl(host));
   }
