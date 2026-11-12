@@ -1,0 +1,18 @@
+services:
+  site-meta:
+    build:
+      context: ./service
+      dockerfile: Dockerfile
+    image: mls-site-meta:local
+    ports:
+      - "8787:8787"
+    environment:
+      PORT: "8787"
+      DATA_DIR: /data
+      DATABASE_PATH: /data/meta.sqlite
+    volumes:
+      - site-meta-data:/data
+    restart: unless-stopped
+
+volumes:
+  site-meta-data:
