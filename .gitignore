@@ -4,3 +4,8 @@ dist/
 *.local
 .vite/
 design sample
+service/data/
+service/node_modules/
+service/dist/
+*.sqlite
+*.sqlite-journal
