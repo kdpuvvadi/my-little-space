@@ -98,6 +98,8 @@ export function normalizeSettings(raw: unknown): Settings {
     mode: raw.mode === 'customUrl' ? 'customUrl' : 'builtin',
     customUrl: typeof raw.customUrl === 'string' ? raw.customUrl : '',
     theme,
+    metaServiceUrl:
+      typeof raw.metaServiceUrl === 'string' ? raw.metaServiceUrl.trim() : '',
     providers,
     defaultProviderId,
     enabledProviderIds: enabled,
