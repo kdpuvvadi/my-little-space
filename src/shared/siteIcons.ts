@@ -471,9 +471,39 @@ export function guessIconIds(hostname: string): string[] {
   return [...specific, ...brandIds];
 }
 
+const ICON_FAIL_KEY = 'mlsIconFailV1';
+const ICON_FAIL_MAX = 400;
+
+function readFailedIconUrls(): Set<string> {
+  try {
+    const raw = localStorage.getItem(ICON_FAIL_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw) as unknown;
+    return new Set(Array.isArray(parsed) ? parsed.filter((u) => typeof u === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+
+/** Remember CDN/favicon URLs that 404 so we do not flash them again. */
+export function markIconUrlFailed(url: string): void {
+  if (!url || typeof localStorage === 'undefined') return;
+  try {
+    const failed = readFailedIconUrls();
+    if (failed.has(url)) return;
+    failed.add(url);
+    const trimmed = [...failed].slice(-ICON_FAIL_MAX);
+    localStorage.setItem(ICON_FAIL_KEY, JSON.stringify(trimmed));
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
 /**
- * Ordered icon URLs:
- * path/exact curated → Dashboard guesses → Simple guesses → parent brand → DDG → Google → origin.
+ * Ordered icon URLs.
+ * Curated map hits use pack icons first.
+ * Unknown hosts use DDG/Google/origin first — speculative pack guesses are last
+ * so missing dashboard-icons ids (e.g. oikos.png) do not blank the tile.
  */
 export function iconCandidatesFor(pageUrl: string): string[] {
   const host = hostnameOf(pageUrl);
@@ -488,30 +518,50 @@ export function iconCandidatesFor(pageUrl: string): string[] {
   const exact = host ? lookupExactSiteIcon(host) : undefined;
   if (exact) pushRef(exact);
 
+  const hasCurated = urls.length > 0;
+
   if (host) {
-    const guesses = guessIconIds(host);
-    // Prefer Dashboard Icons for product apps, then Simple Icons
-    for (const id of guesses) {
-      urls.push(dashboardIconsUrl(id));
-    }
-    for (const id of guesses) {
-      urls.push(simpleIconsUrl(id));
+    // Parent brand only when we already have a curated product icon path;
+    // never as the first guess for arbitrary subdomains.
+    if (hasCurated) {
+      pushRef(lookupParentSiteIcon(host));
     }
 
-    // Parent brand (e.g. google.com) only after product-specific Dashboard/Simple attempts
-    pushRef(lookupParentSiteIcon(host));
+    const reliable: string[] = [
+      duckDuckGoIconUrl(host),
+      googleFaviconUrl(host),
+    ];
+    try {
+      reliable.push(`${new URL(pageUrl).origin}/favicon.ico`);
+    } catch {
+      // ignore
+    }
 
-    urls.push(duckDuckGoIconUrl(host));
-    urls.push(googleFaviconUrl(host));
+    if (hasCurated) {
+      urls.push(...reliable);
+    } else {
+      // Unknown host: show a real favicon immediately; pack guesses are optional tail.
+      urls.push(...reliable);
+      pushRef(lookupParentSiteIcon(host));
+      const guesses = guessIconIds(host);
+      for (const id of guesses) urls.push(dashboardIconsUrl(id));
+      for (const id of guesses) urls.push(simpleIconsUrl(id));
+    }
+  } else {
+    try {
+      urls.push(`${new URL(pageUrl).origin}/favicon.ico`);
+    } catch {
+      // ignore
+    }
   }
 
-  try {
-    urls.push(`${new URL(pageUrl).origin}/favicon.ico`);
-  } catch {
-    // ignore
-  }
+  const unique = [...new Set(urls.filter(Boolean))];
+  if (typeof localStorage === 'undefined') return unique;
 
-  return [...new Set(urls.filter(Boolean))];
+  const failed = readFailedIconUrls();
+  const filtered = unique.filter((u) => !failed.has(u));
+  // If everything was marked failed, fall back to the full list once.
+  return filtered.length ? filtered : unique;
 }
 
 /** Auto pipeline URLs (CDN / common favicon services) — not user custom. */

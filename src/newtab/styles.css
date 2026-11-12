@@ -563,6 +563,18 @@ a {
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
+.shortcut-tile > * {
+  grid-area: 1 / 1;
+}
+
+.shortcut-letter {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1;
+  user-select: none;
+}
+
 .shortcut-item:nth-child(6n + 1) .shortcut-tile {
   background: var(--tile-1);
 }
@@ -589,6 +601,12 @@ a {
   height: 28px;
   object-fit: contain;
   border-radius: 6px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.shortcut-tile img.is-ready {
+  opacity: 1;
 }
 
 .shortcut-tile .plus {

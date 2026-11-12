@@ -1,6 +1,7 @@
 import {
   iconCandidatesFor,
   isCustomIconUrl,
+  markIconUrlFailed,
   resolveShortcutIconUrl,
 } from '../../shared/siteIcons';
 import { resolveShortcutTitle } from '../../shared/siteTitles';
@@ -55,13 +56,15 @@ export function createShortcutsGrid(options: {
         const fallbackAttr = fallbacks.length
           ? ` data-fallbacks="${fallbacks.map(escapeAttr).join('|')}"`
           : '';
+        const letter = escapeAttr(title.slice(0, 1).toUpperCase());
         return `
       <div class="shortcut-item ${editing ? 'editing' : ''}" data-id="${sc.id}">
         <a class="shortcut-tile" href="${sc.url}" ${editing ? 'tabindex="-1"' : ''}>
+          <span class="shortcut-letter" aria-hidden="true">${letter}</span>
           ${
             primary
-              ? `<img src="${escapeAttr(primary)}"${fallbackAttr} alt="" loading="lazy" referrerpolicy="no-referrer" />`
-              : `<span>${title.slice(0, 1)}</span>`
+              ? `<img src="${escapeAttr(primary)}"${fallbackAttr} alt="" decoding="async" referrerpolicy="no-referrer" />`
+              : ''
           }
         </a>
         <div class="shortcut-label" title="${escapeAttr(title)}">${escapeAttr(title)}</div>
@@ -85,15 +88,24 @@ export function createShortcutsGrid(options: {
 
     grid.innerHTML = items + addTile;
 
-    grid.querySelectorAll<HTMLImageElement>('img[data-fallbacks]').forEach((img) => {
+    grid.querySelectorAll<HTMLImageElement>('.shortcut-tile img').forEach((img) => {
+      const reveal = () => img.classList.add('is-ready');
+      if (img.complete && img.naturalWidth > 0) {
+        reveal();
+      } else {
+        img.addEventListener('load', reveal, { once: true });
+      }
+
       img.addEventListener('error', () => {
+        markIconUrlFailed(img.currentSrc || img.src);
         const rest = (img.dataset.fallbacks || '').split('|').filter(Boolean);
         if (!rest.length) {
-          img.replaceWith(document.createTextNode(img.alt || ''));
+          img.remove();
           return;
         }
         const [next, ...more] = rest;
         img.dataset.fallbacks = more.join('|');
+        img.classList.remove('is-ready');
         img.src = next;
       });
     });
