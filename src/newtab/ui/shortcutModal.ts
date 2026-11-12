@@ -3,7 +3,7 @@ import {
   newShortcut,
   normalizePageUrl,
 } from '../../shared/shortcuts';
-import { fetchSiteMeta, isMetaExpired } from '../../shared/siteMetaClient';
+import { fetchSiteMeta } from '../../shared/siteMetaClient';
 import { resolveShortcutTitle } from '../../shared/siteTitles';
 import type { Shortcut } from '../../shared/types';
 
@@ -37,8 +37,8 @@ export function createShortcutModal(options: {
       <p class="panel-error" id="sc-error"></p>
       <div class="modal-actions">
         <button type="button" class="btn" id="sc-cancel">Cancel</button>
-        <button type="button" class="btn" id="sc-update" title="Refresh name and icon from the site meta helper">
-          Update
+        <button type="button" class="btn" id="sc-fetch" title="Fill name and icon from the site meta helper">
+          Fetch
         </button>
         <button type="button" class="btn primary" id="sc-save">Save</button>
       </div>
@@ -52,7 +52,7 @@ export function createShortcutModal(options: {
   const iconInput = root.querySelector('#sc-icon') as HTMLInputElement;
   const statusEl = root.querySelector('#sc-status') as HTMLElement;
   const errorEl = root.querySelector('#sc-error') as HTMLElement;
-  const updateBtn = root.querySelector('#sc-update') as HTMLButtonElement;
+  const fetchBtn = root.querySelector('#sc-fetch') as HTMLButtonElement;
 
   let editing: Shortcut | null = null;
   /** Last helper/local meta applied in this modal session (for iconCustom detection). */
@@ -78,7 +78,8 @@ export function createShortcutModal(options: {
     lastMetaFetchedAt = shortcut?.metaFetchedAt ?? 0;
     statusEl.textContent = '';
     errorEl.textContent = '';
-    updateBtn.textContent = mode === 'edit' ? 'Update' : 'Fetch';
+    // Bulk refresh lives next to Done; Fetch only when adding.
+    fetchBtn.classList.toggle('hidden', mode === 'edit');
     root.classList.add('open');
     urlInput.focus();
   }
@@ -95,7 +96,7 @@ export function createShortcutModal(options: {
     }
   }
 
-  async function applySiteMeta(force: boolean): Promise<boolean> {
+  async function applySiteMeta(): Promise<boolean> {
     errorEl.textContent = '';
     const url = normalizePageUrl(urlInput.value);
     if (!url) {
@@ -103,16 +104,6 @@ export function createShortcutModal(options: {
       return false;
     }
     urlInput.value = url;
-
-    if (
-      !force &&
-      editing &&
-      !isMetaExpired(editing.metaFetchedAt) &&
-      !isMetaExpired(lastMetaFetchedAt)
-    ) {
-      statusEl.textContent = 'Name and icon are still fresh (under 30 days).';
-      return false;
-    }
 
     statusEl.textContent = 'Fetching…';
     const meta = await fetchSiteMeta(url, options.getMetaServiceUrl());
@@ -130,9 +121,8 @@ export function createShortcutModal(options: {
   }
 
   root.querySelector('#sc-cancel')?.addEventListener('click', close);
-  updateBtn.addEventListener('click', () => {
-    // Create: always fetch. Edit: only when expired (force=false).
-    void applySiteMeta(!editing);
+  fetchBtn.addEventListener('click', () => {
+    void applySiteMeta();
   });
   root.addEventListener('click', (e) => {
     if (e.target === root) close();
@@ -149,7 +139,7 @@ export function createShortcutModal(options: {
 
     // New shortcuts always resolve meta once on save if not yet fetched this session.
     if (!editing && !lastMetaFetchedAt) {
-      await applySiteMeta(true);
+      await applySiteMeta();
     }
 
     const guess = guessPageMeta(url);

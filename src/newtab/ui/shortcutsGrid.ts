@@ -10,11 +10,13 @@ import { plusSvg } from './icons';
 export type ShortcutsGridApi = {
   root: HTMLElement;
   setSettings: (settings: Settings, editing: boolean) => void;
+  setUpdateBusy: (busy: boolean) => void;
 };
 
 export function createShortcutsGrid(options: {
   onAdd: () => void;
   onEditToggle: () => void;
+  onUpdateMeta: () => void | Promise<void>;
   onEditShortcut: (shortcut: Shortcut) => void;
   onDeleteShortcut: (id: string) => void;
 }): ShortcutsGridApi {
@@ -26,16 +28,26 @@ export function createShortcutsGrid(options: {
   root.innerHTML = `
     <div class="shortcuts-header">
       <h2 class="shortcuts-title"></h2>
-      <button type="button" class="edit-btn"></button>
+      <div class="shortcuts-header-actions">
+        <button type="button" class="edit-btn update-meta-btn hidden" title="Refresh names and icons for shortcuts older than 30 days">
+          Update
+        </button>
+        <button type="button" class="edit-btn done-btn"></button>
+      </div>
     </div>
     <div class="shortcuts-grid"></div>
   `;
 
   const titleEl = root.querySelector('.shortcuts-title') as HTMLHeadingElement;
-  const editBtn = root.querySelector('.edit-btn') as HTMLButtonElement;
+  const editBtn = root.querySelector('.done-btn') as HTMLButtonElement;
+  const updateBtn = root.querySelector('.update-meta-btn') as HTMLButtonElement;
   const grid = root.querySelector('.shortcuts-grid') as HTMLDivElement;
 
   editBtn.addEventListener('click', () => options.onEditToggle());
+  updateBtn.addEventListener('click', () => {
+    if (updateBtn.disabled) return;
+    void options.onUpdateMeta();
+  });
 
   function render(): void {
     if (!settings) return;
@@ -43,6 +55,7 @@ export function createShortcutsGrid(options: {
     titleEl.textContent = branding.shortcutsTitle;
     editBtn.textContent = editing ? 'Done' : branding.editLabel;
     editBtn.setAttribute('aria-pressed', String(editing));
+    updateBtn.classList.toggle('hidden', !editing);
 
     const items = shortcuts
       .map((sc) => {
@@ -144,6 +157,10 @@ export function createShortcutsGrid(options: {
       settings = next;
       editing = isEditing;
       render();
+    },
+    setUpdateBusy: (busy) => {
+      updateBtn.disabled = busy;
+      updateBtn.textContent = busy ? 'Updating…' : 'Update';
     },
   };
 }

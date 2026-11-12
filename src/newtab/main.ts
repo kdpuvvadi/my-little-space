@@ -1,5 +1,6 @@
 import { resolveMetaServiceUrl } from '../shared/buildConfig';
 import { fetchCatFact } from '../shared/catFact';
+import { fetchSiteMeta, isMetaExpired } from '../shared/siteMetaClient';
 import { loadSettings, saveSettings, updateSettings } from '../shared/storage';
 import { applyTheme, watchSystemTheme } from '../shared/theme';
 import type { Settings, Shortcut, ThemeMode } from '../shared/types';
@@ -216,6 +217,33 @@ async function main(): Promise<void> {
     onEditToggle: () => {
       editingShortcuts = !editingShortcuts;
       shortcutsGrid.setSettings(settings, editingShortcuts);
+    },
+    onUpdateMeta: async () => {
+      shortcutsGrid.setUpdateBusy(true);
+      try {
+        const serviceUrl = resolveMetaServiceUrl(settings.metaServiceUrl);
+        const now = Date.now();
+        const next: Shortcut[] = [];
+        for (const sc of settings.shortcuts) {
+          if (sc.iconCustom || !isMetaExpired(sc.metaFetchedAt, now)) {
+            next.push(sc);
+            continue;
+          }
+          const meta = await fetchSiteMeta(sc.url, serviceUrl);
+          next.push({
+            ...sc,
+            title: meta.title,
+            iconUrl: meta.icon,
+            metaFetchedAt: Date.now(),
+            iconCustom: false,
+          });
+        }
+        settings = await updateSettings({ shortcuts: next });
+        shortcutsGrid.setSettings(settings, editingShortcuts);
+        settingsPanel.setSettings(settings);
+      } finally {
+        shortcutsGrid.setUpdateBusy(false);
+      }
     },
     onEditShortcut: (shortcut) => shortcutModal.openEdit(shortcut),
     onDeleteShortcut: async (id) => {
