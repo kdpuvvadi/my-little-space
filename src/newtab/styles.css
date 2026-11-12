@@ -593,13 +593,25 @@ a {
 }
 
 .shortcut-item.is-placeholder {
-  opacity: 0.28;
+  opacity: 0.22;
   cursor: grabbing;
+  animation: none !important;
+  pointer-events: none;
 }
 
 .shortcut-item.is-placeholder .shortcut-tile {
   transform: none;
   box-shadow: none;
+  outline: 2px dashed color-mix(in srgb, var(--accent) 45%, transparent);
+  outline-offset: 2px;
+  background: transparent !important;
+}
+
+.shortcut-item.is-placeholder .shortcut-letter,
+.shortcut-item.is-placeholder img,
+.shortcut-item.is-placeholder .shortcut-label,
+.shortcut-item.is-placeholder .shortcut-actions {
+  visibility: hidden;
 }
 
 .shortcut-ghost {
@@ -610,9 +622,10 @@ a {
   margin: 0;
   pointer-events: none;
   cursor: grabbing;
-  filter: drop-shadow(0 14px 24px rgba(0, 0, 0, 0.28));
+  filter: drop-shadow(0 16px 28px rgba(0, 0, 0, 0.32));
   will-change: transform;
   transition: none;
+  animation: none !important;
 }
 
 .shortcut-ghost .shortcut-actions {

@@ -7,8 +7,8 @@ import { resolveShortcutTitle } from '../../shared/siteTitles';
 import type { Settings, Shortcut } from '../../shared/types';
 import { plusSvg } from './icons';
 
-const HOLD_MS = 220;
-const MOVE_CANCEL_PX = 8;
+const HOLD_MS = 180;
+const MOVE_CANCEL_PX = 10;
 
 export type ShortcutsGridApi = {
   root: HTMLElement;
@@ -168,6 +168,8 @@ export function createShortcutsGrid(options: {
     let ghost: HTMLElement | null = null;
     let lifted = false;
     let moved = false;
+    let lastDropIndex = -1;
+    let raf = 0;
 
     const clearHold = () => {
       if (holdTimer) {
@@ -176,14 +178,49 @@ export function createShortcutsGrid(options: {
       }
     };
 
+    const onDocMove = (e: PointerEvent) => {
+      if (pointerId !== e.pointerId) return;
+      lastX = e.clientX;
+      lastY = e.clientY;
+
+      if (!lifted) {
+        if (Math.hypot(lastX - startX, lastY - startY) > MOVE_CANCEL_PX) {
+          clearHold();
+          detachDocListeners();
+          pointerId = null;
+        }
+        return;
+      }
+
+      e.preventDefault();
+      if (!raf) {
+        raf = requestAnimationFrame(() => {
+          raf = 0;
+          moveGhost(lastX, lastY);
+          movePlaceholderToPointer(lastX, lastY);
+        });
+      }
+    };
+
+    const onDocUp = (e: PointerEvent) => {
+      if (pointerId !== e.pointerId) return;
+      const wasLifted = lifted;
+      cleanup();
+      if (wasLifted) persistOrderFromDom();
+    };
+
+    const detachDocListeners = () => {
+      document.removeEventListener('pointermove', onDocMove);
+      document.removeEventListener('pointerup', onDocUp);
+      document.removeEventListener('pointercancel', onDocUp);
+    };
+
     const cleanup = () => {
       clearHold();
-      if (pointerId !== null) {
-        try {
-          item.releasePointerCapture(pointerId);
-        } catch {
-          // ignore
-        }
+      detachDocListeners();
+      if (raf) {
+        cancelAnimationFrame(raf);
+        raf = 0;
       }
       pointerId = null;
       if (ghost) {
@@ -194,6 +231,50 @@ export function createShortcutsGrid(options: {
       grid.classList.remove('is-reordering');
       lifted = false;
       moved = false;
+      lastDropIndex = -1;
+    };
+
+    const moveGhost = (clientX: number, clientY: number) => {
+      if (!ghost) return;
+      ghost.style.transform = `translate3d(${clientX - offsetX}px, ${clientY - offsetY}px, 0) scale(1.12)`;
+    };
+
+    /** Index among grid children excluding the dragged item. */
+    const dropIndexForPoint = (clientX: number, clientY: number): number => {
+      const slots = [
+        ...grid.querySelectorAll<HTMLElement>(':scope > .shortcut-item'),
+      ].filter((el) => el !== item);
+      if (!slots.length) return 0;
+
+      let best = slots.length;
+      let bestDist = Infinity;
+      for (let i = 0; i < slots.length; i++) {
+        const r = slots[i].getBoundingClientRect();
+        const cx = r.left + r.width / 2;
+        const cy = r.top + r.height / 2;
+        const dist = (clientX - cx) ** 2 + (clientY - cy) ** 2;
+        if (dist < bestDist) {
+          bestDist = dist;
+          // Place before this slot if pointer is left/above its center.
+          best = clientX < cx || (Math.abs(clientX - cx) < r.width * 0.15 && clientY < cy)
+            ? i
+            : i + 1;
+        }
+      }
+      return Math.max(0, Math.min(best, slots.length));
+    };
+
+    const movePlaceholderToPointer = (clientX: number, clientY: number) => {
+      const index = dropIndexForPoint(clientX, clientY);
+      if (index === lastDropIndex) return;
+      lastDropIndex = index;
+
+      const slots = [
+        ...grid.querySelectorAll<HTMLElement>(':scope > .shortcut-item'),
+      ].filter((el) => el !== item);
+      const ref = slots[index] ?? null;
+      if (ref) grid.insertBefore(item, ref);
+      else grid.append(item);
     };
 
     const lift = (clientX: number, clientY: number) => {
@@ -206,6 +287,9 @@ export function createShortcutsGrid(options: {
       const rect = item.getBoundingClientRect();
       offsetX = clientX - rect.left;
       offsetY = clientY - rect.top;
+      lastDropIndex = [
+        ...grid.querySelectorAll<HTMLElement>(':scope > .shortcut-item'),
+      ].indexOf(item);
 
       ghost = item.cloneNode(true) as HTMLElement;
       ghost.classList.remove('is-placeholder', 'is-lifting');
@@ -226,28 +310,6 @@ export function createShortcutsGrid(options: {
       }
     };
 
-    const moveGhost = (clientX: number, clientY: number) => {
-      if (!ghost) return;
-      ghost.style.transform = `translate3d(${clientX - offsetX}px, ${clientY - offsetY}px, 0) scale(1.12)`;
-    };
-
-    const reorderUnderPointer = (clientX: number, clientY: number) => {
-      const el = document.elementFromPoint(clientX, clientY);
-      const over = el?.closest('.shortcut-item') as HTMLElement | null;
-      if (!over || over === item) return;
-
-      if (over.dataset.add === '1') {
-        grid.insertBefore(item, over);
-        return;
-      }
-      if (!over.dataset.id) return;
-
-      const rect = over.getBoundingClientRect();
-      const before = clientX < rect.left + rect.width / 2;
-      if (before) grid.insertBefore(item, over);
-      else grid.insertBefore(item, over.nextSibling);
-    };
-
     item.addEventListener('pointerdown', (e) => {
       if (e.button !== 0) return;
       const target = e.target as HTMLElement | null;
@@ -260,43 +322,17 @@ export function createShortcutsGrid(options: {
       startY = lastY = e.clientY;
       lifted = false;
       moved = false;
-      item.setPointerCapture(e.pointerId);
+      lastDropIndex = -1;
+
+      document.addEventListener('pointermove', onDocMove, { passive: false });
+      document.addEventListener('pointerup', onDocUp);
+      document.addEventListener('pointercancel', onDocUp);
 
       holdTimer = setTimeout(() => {
         holdTimer = null;
         lift(lastX, lastY);
       }, HOLD_MS);
     });
-
-    item.addEventListener('pointermove', (e) => {
-      if (pointerId !== e.pointerId) return;
-      lastX = e.clientX;
-      lastY = e.clientY;
-      const dx = e.clientX - startX;
-      const dy = e.clientY - startY;
-
-      if (!lifted) {
-        if (Math.hypot(dx, dy) > MOVE_CANCEL_PX) {
-          // Moved before hold completed — cancel lift (treat as scroll/cancel).
-          clearHold();
-        }
-        return;
-      }
-
-      e.preventDefault();
-      moveGhost(e.clientX, e.clientY);
-      reorderUnderPointer(e.clientX, e.clientY);
-    });
-
-    const endPointer = (e: PointerEvent) => {
-      if (pointerId !== e.pointerId) return;
-      const wasLifted = lifted;
-      cleanup();
-      if (wasLifted) persistOrderFromDom();
-    };
-
-    item.addEventListener('pointerup', endPointer);
-    item.addEventListener('pointercancel', endPointer);
 
     // Prevent click-through after a lift.
     item.addEventListener(
