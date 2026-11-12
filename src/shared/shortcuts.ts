@@ -1,4 +1,4 @@
-import { iconCandidatesFor } from './siteIcons';
+import { iconCandidatesFor, iconUrlToPersist } from './siteIcons';
 import type { Shortcut } from './types';
 
 const ALL_HOSTS = ['http://*/*', 'https://*/*'] as const;
@@ -121,6 +121,7 @@ export function newShortcut(partial: {
     id: createShortcutId(),
     url,
     title: partial.title?.trim() || guess.title,
-    iconUrl: partial.iconUrl || guess.iconUrl,
+    // Empty = auto; only a user custom URL is stored.
+    iconUrl: iconUrlToPersist(url, partial.iconUrl ?? ''),
   };
 }

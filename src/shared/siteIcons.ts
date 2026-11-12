@@ -513,3 +513,34 @@ export function iconCandidatesFor(pageUrl: string): string[] {
 
   return [...new Set(urls.filter(Boolean))];
 }
+
+/** Auto pipeline URLs (CDN / common favicon services) — not user custom. */
+export function isAutoIconUrl(url: string): boolean {
+  return /cdn\.simpleicons\.org|dashboard-icons|icons\.duckduckgo\.com|google\.com\/s2\/favicons|\/favicon\.ico(?:$|\?)/i.test(
+    url,
+  );
+}
+
+/**
+ * True only when the user set a custom icon URL.
+ * Empty, auto-CDN, or current candidate URLs are treated as auto.
+ */
+export function isCustomIconUrl(pageUrl: string, iconUrl: string): boolean {
+  const trimmed = iconUrl.trim();
+  if (!trimmed) return false;
+  if (isAutoIconUrl(trimmed)) return false;
+  return !iconCandidatesFor(pageUrl).includes(trimmed);
+}
+
+/** Icon to show: custom if set, otherwise latest auto candidates. */
+export function resolveShortcutIconUrl(pageUrl: string, storedIconUrl: string): string {
+  if (isCustomIconUrl(pageUrl, storedIconUrl)) return storedIconUrl.trim();
+  return iconCandidatesFor(pageUrl)[0] ?? '';
+}
+
+/** Persist only custom icons; auto icons store as empty so they keep updating. */
+export function iconUrlToPersist(pageUrl: string, entered: string): string {
+  const trimmed = entered.trim();
+  if (!trimmed) return '';
+  return isCustomIconUrl(pageUrl, trimmed) ? trimmed : '';
+}

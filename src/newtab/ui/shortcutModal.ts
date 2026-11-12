@@ -4,6 +4,7 @@ import {
   newShortcut,
   normalizePageUrl,
 } from '../../shared/shortcuts';
+import { iconUrlToPersist, resolveShortcutIconUrl } from '../../shared/siteIcons';
 import type { Shortcut } from '../../shared/types';
 
 export type ShortcutModalApi = {
@@ -29,7 +30,7 @@ export function createShortcutModal(options: {
       </div>
       <div class="field">
         <label for="sc-icon">Icon URL</label>
-        <input type="url" id="sc-icon" placeholder="Favicon (editable)" />
+        <input type="url" id="sc-icon" placeholder="Auto (or paste a custom URL)" />
       </div>
       <p class="panel-note" id="sc-status"></p>
       <p class="panel-error" id="sc-error"></p>
@@ -63,7 +64,9 @@ export function createShortcutModal(options: {
     titleEl.textContent = mode === 'edit' ? 'Edit shortcut' : 'Add shortcut';
     urlInput.value = shortcut?.url ?? '';
     titleInput.value = shortcut?.title ?? '';
-    iconInput.value = shortcut?.iconUrl ?? '';
+    iconInput.value = shortcut
+      ? resolveShortcutIconUrl(shortcut.url, shortcut.iconUrl)
+      : '';
     statusEl.textContent = '';
     errorEl.textContent = '';
     root.classList.add('open');
@@ -125,7 +128,8 @@ export function createShortcutModal(options: {
     // Fill blanks locally — never request permission on Save.
     const guess = guessPageMeta(url);
     const title = titleInput.value.trim() || guess.title;
-    const iconUrl = iconInput.value.trim() || guess.iconUrl;
+    // Store custom URLs only; auto icons stay empty and refresh from the map.
+    const iconUrl = iconUrlToPersist(url, iconInput.value.trim() || guess.iconUrl);
 
     const shortcut = editing
       ? { ...editing, url, title, iconUrl }

@@ -1,4 +1,8 @@
-import { iconCandidatesFor } from '../../shared/siteIcons';
+import {
+  iconCandidatesFor,
+  isCustomIconUrl,
+  resolveShortcutIconUrl,
+} from '../../shared/siteIcons';
 import type { Settings, Shortcut } from '../../shared/types';
 import { plusSvg } from './icons';
 
@@ -42,15 +46,10 @@ export function createShortcutsGrid(options: {
     const items = shortcuts
       .map((sc) => {
         const candidates = iconCandidatesFor(sc.url);
-        // Keep only truly custom icons; refresh auto CDN icons so map fixes apply.
-        const customIcon =
-          sc.iconUrl &&
-          !isAutoIconUrl(sc.iconUrl) &&
-          !candidates.includes(sc.iconUrl)
-            ? sc.iconUrl
-            : '';
-        const primary = customIcon || candidates[0] || sc.iconUrl || '';
-        const fallbacks = candidates.filter((u) => u !== primary);
+        const primary = resolveShortcutIconUrl(sc.url, sc.iconUrl);
+        const fallbacks = isCustomIconUrl(sc.url, sc.iconUrl)
+          ? []
+          : candidates.filter((u) => u !== primary);
         const fallbackAttr = fallbacks.length
           ? ` data-fallbacks="${fallbacks.map(escapeAttr).join('|')}"`
           : '';
@@ -132,12 +131,6 @@ export function createShortcutsGrid(options: {
       render();
     },
   };
-}
-
-function isAutoIconUrl(url: string): boolean {
-  return /cdn\.simpleicons\.org|dashboard-icons|icons\.duckduckgo\.com|google\.com\/s2\/favicons|\/favicon\.ico(?:$|\?)/i.test(
-    url,
-  );
 }
 
 function escapeAttr(value: string): string {
