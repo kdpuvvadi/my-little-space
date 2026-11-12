@@ -129,6 +129,20 @@ export function createShortcutsGrid(options: {
 
     grid.querySelector('.add-shortcut')?.addEventListener('click', () => options.onAdd());
 
+    const addItem = grid.querySelector('.shortcut-item.add-tile') as HTMLElement | null;
+    if (editing && addItem) {
+      addItem.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        const dragging = grid.querySelector('.shortcut-item.dragging');
+        if (!dragging) return;
+        grid.insertBefore(dragging, addItem);
+      });
+      addItem.addEventListener('drop', (e) => {
+        e.preventDefault();
+        persistOrderFromDom();
+      });
+    }
+
     grid.querySelectorAll('.shortcut-item[data-id]').forEach((el) => {
       const item = el as HTMLElement;
       const id = item.dataset.id!;
@@ -173,6 +187,7 @@ export function createShortcutsGrid(options: {
       grid.querySelectorAll('.shortcut-item.drag-over').forEach((el) => {
         el.classList.remove('drag-over');
       });
+      persistOrderFromDom();
     });
 
     item.addEventListener('dragover', (e) => {
