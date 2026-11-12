@@ -10,6 +10,10 @@ export type Shortcut = {
   url: string;
   title: string;
   iconUrl: string;
+  /** Epoch ms when title/icon were last resolved from helper or local fallback. */
+  metaFetchedAt: number;
+  /** True when the user set a custom Icon URL — never auto-replaced. */
+  iconCustom: boolean;
 };
 
 export type Branding = {
