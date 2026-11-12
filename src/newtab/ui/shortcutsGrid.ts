@@ -1,6 +1,5 @@
 import {
   iconCandidatesFor,
-  isCustomIconUrl,
   markIconUrlFailed,
   resolveShortcutIconUrl,
 } from '../../shared/siteIcons';
@@ -49,8 +48,10 @@ export function createShortcutsGrid(options: {
       .map((sc) => {
         const title = resolveShortcutTitle(sc.url, sc.title);
         const candidates = iconCandidatesFor(sc.url);
-        const primary = resolveShortcutIconUrl(sc.url, sc.iconUrl);
-        const fallbacks = isCustomIconUrl(sc.url, sc.iconUrl)
+        // Prefer stored icon (from helper or custom); fall back to local candidates.
+        const primary =
+          sc.iconUrl.trim() || resolveShortcutIconUrl(sc.url, sc.iconUrl);
+        const fallbacks = sc.iconCustom
           ? []
           : candidates.filter((u) => u !== primary);
         const fallbackAttr = fallbacks.length
