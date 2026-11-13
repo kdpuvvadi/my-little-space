@@ -927,10 +927,42 @@ a {
   gap: 0.35rem;
 }
 
+.group-sheet-title-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
 .group-sheet-title {
   margin: 0;
   font-size: 1.05rem;
   font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.group-sheet-title-input {
+  width: 100%;
+  margin: 0;
+  padding: 0.2rem 0.45rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--panel-border));
+  background: var(--panel-bg);
+  color: inherit;
+  font: inherit;
+  font-size: 1.05rem;
+  font-weight: 650;
+}
+
+.group-sheet-title-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.group-name-modal,
+.group-confirm-modal {
+  z-index: 90;
 }
 
 .group-sheet-grid {
