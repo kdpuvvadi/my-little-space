@@ -72,7 +72,6 @@ export function createShortcutsGrid(options: {
     <div class="group-sheet" role="dialog" aria-modal="true" aria-labelledby="group-sheet-title" tabindex="-1">
       <div class="group-sheet-header">
         <div class="group-sheet-title-row">
-          <div class="group-sheet-cwp-host" id="group-sheet-cwp"></div>
           <div class="group-sheet-title-wrap">
             <h3 id="group-sheet-title" class="group-sheet-title"></h3>
             <input
@@ -84,6 +83,7 @@ export function createShortcutsGrid(options: {
               aria-label="Group name"
             />
           </div>
+          <div class="group-sheet-cwp-host" id="group-sheet-cwp"></div>
         </div>
         <div class="group-sheet-header-actions">
           <button type="button" class="icon-btn group-sheet-rename hidden" title="Rename group" aria-label="Rename group">✎</button>
@@ -103,8 +103,8 @@ export function createShortcutsGrid(options: {
   nameModal.innerHTML = `
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="group-name-title">
       <div class="group-name-title-row">
-        <div class="group-name-cwp-host" id="group-name-cwp"></div>
         <h3 id="group-name-title">Group name</h3>
+        <div class="group-name-cwp-host" id="group-name-cwp"></div>
       </div>
       <div class="field">
         <label for="group-name-input">Name</label>
