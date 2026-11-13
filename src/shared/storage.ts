@@ -1,7 +1,12 @@
 import { createDefaultSettings, DEFAULT_BRANDING } from './defaults';
+import {
+  GROUP_ACCENT_PALETTE,
+  normalizeGroupAccentColor,
+  normalizeHomeOrder,
+} from './groups';
 import { normalizeProviders } from './providers';
 import { resolveShortcutTitle } from './siteTitles';
-import type { Branding, Settings, Shortcut } from './types';
+import type { Branding, Settings, Shortcut, ShortcutGroup } from './types';
 
 const STORAGE_KEY = 'mlsSettings';
 
@@ -55,6 +60,21 @@ function normalizeShortcut(raw: unknown, index: number): Shortcut | null {
   };
 }
 
+function normalizeGroup(raw: unknown, index: number): ShortcutGroup | null {
+  if (!isObject(raw)) return null;
+  const id = typeof raw.id === 'string' && raw.id ? raw.id : `grp-${index}-${Date.now()}`;
+  const title =
+    typeof raw.title === 'string' && raw.title.trim() ? raw.title.trim() : 'Group';
+  const shortcutIds = Array.isArray(raw.shortcutIds)
+    ? raw.shortcutIds.filter((x): x is string => typeof x === 'string' && Boolean(x))
+    : [];
+  const accentColor = normalizeGroupAccentColor(
+    raw.accentColor,
+    GROUP_ACCENT_PALETTE[index % GROUP_ACCENT_PALETTE.length],
+  );
+  return { id, title, shortcutIds: [...new Set(shortcutIds)], accentColor };
+}
+
 export function normalizeSettings(raw: unknown): Settings {
   const defaults = createDefaultSettings();
   if (!isObject(raw)) return defaults;
@@ -89,6 +109,34 @@ export function normalizeSettings(raw: unknown): Settings {
         .filter((s): s is Shortcut => s !== null)
     : [];
 
+  const shortcutIdSet = new Set(shortcuts.map((s) => s.id));
+  let groups = Array.isArray(raw.groups)
+    ? raw.groups
+        .map((item, i) => normalizeGroup(item, i))
+        .filter((g): g is ShortcutGroup => g !== null)
+        .map((g) => ({
+          ...g,
+          shortcutIds: g.shortcutIds.filter((id) => shortcutIdSet.has(id)),
+        }))
+    : [];
+
+  // A shortcut may only live in one group.
+  const claimed = new Set<string>();
+  groups = groups.map((g) => {
+    const ids = g.shortcutIds.filter((id) => {
+      if (claimed.has(id)) return false;
+      claimed.add(id);
+      return true;
+    });
+    return { ...g, shortcutIds: ids };
+  });
+
+  const homeOrderRaw = Array.isArray(raw.homeOrder)
+    ? raw.homeOrder.filter((id): id is string => typeof id === 'string')
+    : shortcuts.map((s) => s.id);
+
+  const homeOrder = normalizeHomeOrder(homeOrderRaw, shortcuts, groups);
+
   const theme =
     raw.theme === 'dark' || raw.theme === 'system' || raw.theme === 'light'
       ? raw.theme
@@ -106,6 +154,8 @@ export function normalizeSettings(raw: unknown): Settings {
     enabledProviderIds: enabled,
     selectedProviderId,
     shortcuts,
+    groups,
+    homeOrder,
     branding: mergeBranding(raw.branding),
   };
 }

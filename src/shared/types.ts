@@ -16,6 +16,16 @@ export type Shortcut = {
   iconCustom: boolean;
 };
 
+/** Folder of shortcuts on the home grid. */
+export type ShortcutGroup = {
+  id: string;
+  title: string;
+  /** Ordered shortcut ids contained in this group. */
+  shortcutIds: string[];
+  /** Hex accent used for the group border / sheet chrome. */
+  accentColor: string;
+};
+
 export type Branding = {
   logoUrl: string;
   showLogo: boolean;
@@ -46,5 +56,12 @@ export type Settings = {
   enabledProviderIds: string[];
   selectedProviderId: string;
   shortcuts: Shortcut[];
+  /** Folders that hold shortcuts (membership via shortcutIds). */
+  groups: ShortcutGroup[];
+  /**
+   * Top-level grid order: shortcut ids and group ids.
+   * Shortcuts listed in a group are omitted here.
+   */
+  homeOrder: string[];
   branding: Branding;
 };

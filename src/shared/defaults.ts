@@ -61,6 +61,8 @@ export function createDefaultSettings(): Settings {
     enabledProviderIds: providers.map((p) => p.id),
     selectedProviderId: 'google',
     shortcuts: [],
+    groups: [],
+    homeOrder: [],
     branding: { ...DEFAULT_BRANDING },
   };
 }
