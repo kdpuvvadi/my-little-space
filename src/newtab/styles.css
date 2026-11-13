@@ -855,11 +855,13 @@ a {
   display: grid;
   place-items: center;
   padding: 1.25rem;
+  visibility: hidden;
   pointer-events: none;
 }
 
-.group-overlay[hidden] {
-  display: none !important;
+.group-overlay.is-active {
+  visibility: visible;
+  pointer-events: auto;
 }
 
 .group-overlay-backdrop {
@@ -867,8 +869,7 @@ a {
   inset: 0;
   background: var(--overlay);
   opacity: 0;
-  transition: opacity 0.28s ease;
-  pointer-events: auto;
+  transition: opacity 0.3s ease;
 }
 
 .group-sheet {
@@ -879,15 +880,15 @@ a {
   overflow: auto;
   padding: 1.15rem 1.15rem 1.35rem;
   border-radius: 20px;
-  border: 1px solid var(--panel-border);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--panel-border));
   background: var(--panel-bg);
   box-shadow: 0 24px 60px var(--overlay);
-  transform: translateY(18px) scale(0.92);
+  transform: translateY(28px) scale(0.9);
   opacity: 0;
   transition:
-    transform 0.34s cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 0.28s ease;
-  pointer-events: auto;
+    transform 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.3s ease;
+  will-change: transform, opacity;
 }
 
 .group-overlay.is-open .group-overlay-backdrop {
@@ -901,14 +902,15 @@ a {
 
 .group-overlay.is-closing .group-overlay-backdrop {
   opacity: 0;
+  transition: opacity 0.24s ease;
 }
 
 .group-overlay.is-closing .group-sheet {
-  transform: translateY(12px) scale(0.94);
+  transform: translateY(16px) scale(0.94);
   opacity: 0;
   transition:
-    transform 0.26s ease,
-    opacity 0.22s ease;
+    transform 0.28s ease,
+    opacity 0.24s ease;
 }
 
 .group-sheet-header {
@@ -942,7 +944,7 @@ a {
 @media (prefers-reduced-motion: reduce) {
   .group-overlay-backdrop,
   .group-sheet {
-    transition-duration: 0.01ms !important;
+    transition-duration: 0.12s !important;
   }
 }
 
