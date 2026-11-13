@@ -921,6 +921,12 @@ a {
   margin-bottom: 1rem;
 }
 
+.group-sheet-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
 .group-sheet-title {
   margin: 0;
   font-size: 1.05rem;
@@ -939,6 +945,16 @@ a {
   text-align: center;
   color: var(--muted);
   font-size: 0.85rem;
+}
+
+.btn.danger-btn {
+  background: color-mix(in srgb, var(--danger) 18%, var(--panel-bg));
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--panel-border));
+  color: var(--danger);
+}
+
+.btn.danger-btn:hover {
+  background: color-mix(in srgb, var(--danger) 28%, var(--panel-bg));
 }
 
 @media (prefers-reduced-motion: reduce) {
