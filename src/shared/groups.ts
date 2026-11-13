@@ -1,14 +1,76 @@
 import type { Shortcut, ShortcutGroup } from './types';
 
+/** Distinct default accents so multiple groups are easy to tell apart. */
+export const GROUP_ACCENT_PALETTE = [
+  '#536a49', // sage
+  '#3d6b8a', // steel blue
+  '#8a5a3c', // terracotta
+  '#6b4f8a', // plum
+  '#2f6f62', // teal
+  '#8a6b2f', // ochre
+  '#6a3d4f', // wine
+  '#4a6b3d', // olive
+  '#3d5a8a', // indigo
+  '#8a4a4a', // brick
+] as const;
+
+const HEX_COLOR = /^#([0-9a-f]{6}|[0-9a-f]{3})$/i;
+
+export function isGroupAccentColor(value: string): boolean {
+  return HEX_COLOR.test(value.trim());
+}
+
+export function normalizeGroupAccentColor(
+  value: unknown,
+  fallback: string = GROUP_ACCENT_PALETTE[0],
+): string {
+  if (typeof value !== 'string') return fallback;
+  const trimmed = value.trim();
+  if (!isGroupAccentColor(trimmed)) return fallback;
+  if (trimmed.length === 4) {
+    const [, r, g, b] = trimmed;
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+  }
+  return trimmed.toLowerCase();
+}
+
+/** Next palette color that is least used among existing groups. */
+export function nextGroupAccent(existing: ShortcutGroup[]): string {
+  const counts = new Map<string, number>();
+  for (const color of GROUP_ACCENT_PALETTE) counts.set(color, 0);
+  for (const g of existing) {
+    const c = normalizeGroupAccentColor(g.accentColor);
+    counts.set(c, (counts.get(c) ?? 0) + 1);
+  }
+  let best = GROUP_ACCENT_PALETTE[0];
+  let bestCount = Number.POSITIVE_INFINITY;
+  for (const color of GROUP_ACCENT_PALETTE) {
+    const n = counts.get(color) ?? 0;
+    if (n < bestCount) {
+      best = color;
+      bestCount = n;
+    }
+  }
+  return best;
+}
+
 export function createGroupId(): string {
   return `grp-${crypto.randomUUID()}`;
 }
 
-export function newGroup(title = 'New group'): ShortcutGroup {
+export function newGroup(
+  title = 'New group',
+  options: { accentColor?: string; existing?: ShortcutGroup[] } = {},
+): ShortcutGroup {
+  const existing = options.existing ?? [];
   return {
     id: createGroupId(),
     title: title.trim() || 'New group',
     shortcutIds: [],
+    accentColor: normalizeGroupAccentColor(
+      options.accentColor,
+      nextGroupAccent(existing),
+    ),
   };
 }
 
