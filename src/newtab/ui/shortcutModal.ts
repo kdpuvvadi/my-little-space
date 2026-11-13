@@ -125,7 +125,7 @@ export function createShortcutModal(options: {
       imgEl.hidden = true;
       imgEl.removeAttribute('src');
       previewEl.classList.remove('has-image');
-      captionEl.textContent = 'Auto (letter until an icon loads)';
+      captionEl.textContent = 'Auto';
       return;
     }
     imgEl.hidden = false;
