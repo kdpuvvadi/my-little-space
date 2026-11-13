@@ -40,7 +40,7 @@ const KNOWN_SHORTCUT_KEYS = new Set([
   'metaFetchedAt',
   'iconCustom',
 ]);
-const KNOWN_GROUP_KEYS = new Set(['id', 'title', 'shortcutIds']);
+const KNOWN_GROUP_KEYS = new Set(['id', 'title', 'shortcutIds', 'accentColor']);
 const KNOWN_PROVIDER_KEYS = new Set(['id', 'name', 'bang', 'searchUrl']);
 
 export type YamlImportResult =
@@ -83,10 +83,11 @@ export function settingsToYaml(settings: Settings): string {
         iconCustom,
       }),
     ),
-    groups: settings.groups.map(({ id, title, shortcutIds }) => ({
+    groups: settings.groups.map(({ id, title, shortcutIds, accentColor }) => ({
       id,
       title,
       shortcutIds,
+      accentColor,
     })),
     homeOrder: settings.homeOrder,
   };
