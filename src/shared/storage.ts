@@ -1,5 +1,9 @@
 import { createDefaultSettings, DEFAULT_BRANDING } from './defaults';
-import { normalizeHomeOrder } from './groups';
+import {
+  GROUP_ACCENT_PALETTE,
+  normalizeGroupAccentColor,
+  normalizeHomeOrder,
+} from './groups';
 import { normalizeProviders } from './providers';
 import { resolveShortcutTitle } from './siteTitles';
 import type { Branding, Settings, Shortcut, ShortcutGroup } from './types';
@@ -64,7 +68,11 @@ function normalizeGroup(raw: unknown, index: number): ShortcutGroup | null {
   const shortcutIds = Array.isArray(raw.shortcutIds)
     ? raw.shortcutIds.filter((x): x is string => typeof x === 'string' && Boolean(x))
     : [];
-  return { id, title, shortcutIds: [...new Set(shortcutIds)] };
+  const accentColor = normalizeGroupAccentColor(
+    raw.accentColor,
+    GROUP_ACCENT_PALETTE[index % GROUP_ACCENT_PALETTE.length],
+  );
+  return { id, title, shortcutIds: [...new Set(shortcutIds)], accentColor };
 }
 
 export function normalizeSettings(raw: unknown): Settings {
