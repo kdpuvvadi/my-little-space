@@ -36,6 +36,8 @@ export function createShortcutsGrid(options: {
   let settings: Settings | null = null;
   let editing = false;
   let openGroupId: string | null = null;
+  let sheetClosing = false;
+  let sheetOpenRaf = 0;
 
   const root = document.createElement('section');
   root.className = 'shortcuts-section';
@@ -51,27 +53,32 @@ export function createShortcutsGrid(options: {
       </div>
     </div>
     <div class="shortcuts-grid"></div>
-    <div class="group-overlay" id="group-overlay" hidden>
-      <div class="group-overlay-backdrop" data-close="1"></div>
-      <div class="group-sheet" role="dialog" aria-modal="true" aria-labelledby="group-sheet-title" tabindex="-1">
-        <div class="group-sheet-header">
-          <h3 id="group-sheet-title" class="group-sheet-title"></h3>
-          <button type="button" class="icon-btn group-sheet-close" data-close="1" title="Close" aria-label="Close">
-            ${closeSvg}
-          </button>
-        </div>
-        <div class="group-sheet-grid"></div>
-        <p class="group-sheet-empty hidden">No shortcuts in this group yet. Drag icons onto it while editing.</p>
+  `;
+
+  // Mount on body so fixed positioning / transitions aren't clipped by ancestors.
+  const overlay = document.createElement('div');
+  overlay.className = 'group-overlay';
+  overlay.setAttribute('aria-hidden', 'true');
+  overlay.innerHTML = `
+    <div class="group-overlay-backdrop" data-close="1"></div>
+    <div class="group-sheet" role="dialog" aria-modal="true" aria-labelledby="group-sheet-title" tabindex="-1">
+      <div class="group-sheet-header">
+        <h3 id="group-sheet-title" class="group-sheet-title"></h3>
+        <button type="button" class="icon-btn group-sheet-close" data-close="1" title="Close" aria-label="Close">
+          ${closeSvg}
+        </button>
       </div>
+      <div class="group-sheet-grid"></div>
+      <p class="group-sheet-empty hidden">No shortcuts in this group yet. Drag icons onto it while editing.</p>
     </div>
   `;
+  document.body.append(overlay);
 
   const titleEl = root.querySelector('.shortcuts-title') as HTMLHeadingElement;
   const primaryBtn = root.querySelector('.primary-btn') as HTMLButtonElement;
   const cancelBtn = root.querySelector('.cancel-btn') as HTMLButtonElement;
   const updateBtn = root.querySelector('.update-meta-btn') as HTMLButtonElement;
   const grid = root.querySelector('.shortcuts-grid') as HTMLDivElement;
-  const overlay = root.querySelector('#group-overlay') as HTMLElement;
   const sheet = overlay.querySelector('.group-sheet') as HTMLElement;
   const sheetTitle = overlay.querySelector('#group-sheet-title') as HTMLElement;
   const sheetGrid = overlay.querySelector('.group-sheet-grid') as HTMLElement;
@@ -372,20 +379,38 @@ export function createShortcutsGrid(options: {
   }
 
   function openGroupSheet(groupId: string): void {
+    if (sheetClosing) {
+      overlay.classList.remove('is-closing');
+      sheetClosing = false;
+    }
     openGroupId = groupId;
     fillGroupSheet(groupId);
-    overlay.hidden = false;
-    // Force reflow so CSS transitions run.
-    void overlay.offsetWidth;
-    overlay.classList.add('is-open');
-    sheet.focus();
+    overlay.classList.add('is-active');
+    overlay.setAttribute('aria-hidden', 'false');
+
+    if (sheetOpenRaf) cancelAnimationFrame(sheetOpenRaf);
+    // Two frames so the closed styles paint before transitioning to open.
+    sheetOpenRaf = requestAnimationFrame(() => {
+      sheetOpenRaf = requestAnimationFrame(() => {
+        sheetOpenRaf = 0;
+        overlay.classList.add('is-open');
+        sheet.focus({ preventScroll: true });
+      });
+    });
   }
 
   function closeGroupSheet(immediate = false): void {
-    if (!openGroupId && overlay.hidden) return;
+    if (!openGroupId && !overlay.classList.contains('is-active')) return;
+
+    if (sheetOpenRaf) {
+      cancelAnimationFrame(sheetOpenRaf);
+      sheetOpenRaf = 0;
+    }
+
     const finish = () => {
-      overlay.hidden = true;
-      overlay.classList.remove('is-open', 'is-closing');
+      sheetClosing = false;
+      overlay.classList.remove('is-open', 'is-closing', 'is-active');
+      overlay.setAttribute('aria-hidden', 'true');
       sheetGrid.innerHTML = '';
       openGroupId = null;
     };
@@ -395,15 +420,24 @@ export function createShortcutsGrid(options: {
       return;
     }
 
-    overlay.classList.add('is-closing');
+    sheetClosing = true;
     overlay.classList.remove('is-open');
-    const onEnd = (e: TransitionEvent) => {
-      if (e.target !== sheet || e.propertyName !== 'transform') return;
+    overlay.classList.add('is-closing');
+
+    let done = false;
+    const complete = () => {
+      if (done) return;
+      done = true;
       sheet.removeEventListener('transitionend', onEnd);
       finish();
     };
+    const onEnd = (e: TransitionEvent) => {
+      if (e.target !== sheet) return;
+      if (e.propertyName !== 'transform' && e.propertyName !== 'opacity') return;
+      complete();
+    };
     sheet.addEventListener('transitionend', onEnd);
-    window.setTimeout(finish, 420);
+    window.setTimeout(complete, 400);
   }
 
   function clearGroupDropHighlights(): void {
