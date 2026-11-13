@@ -42,7 +42,7 @@ export function nextGroupAccent(existing: ShortcutGroup[]): string {
     const c = normalizeGroupAccentColor(g.accentColor);
     counts.set(c, (counts.get(c) ?? 0) + 1);
   }
-  let best = GROUP_ACCENT_PALETTE[0];
+  let best: string = GROUP_ACCENT_PALETTE[0];
   let bestCount = Number.POSITIVE_INFINITY;
   for (const color of GROUP_ACCENT_PALETTE) {
     const n = counts.get(color) ?? 0;
