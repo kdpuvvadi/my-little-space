@@ -1,4 +1,10 @@
-import { normalizeHomeOrder, shortcutsInGroup } from '../../shared/groups';
+import {
+  GROUP_ACCENT_PALETTE,
+  nextGroupAccent,
+  normalizeGroupAccentColor,
+  normalizeHomeOrder,
+  shortcutsInGroup,
+} from '../../shared/groups';
 import {
   iconCandidatesFor,
   markIconUrlFailed,
@@ -20,7 +26,7 @@ export type ShortcutsGridApi = {
 
 export function createShortcutsGrid(options: {
   onAdd: () => void;
-  onAddGroup: (title: string) => void;
+  onAddGroup: (title: string, accentColor: string) => void;
   onBeginEdit: () => void;
   onSaveEdit: () => void | Promise<void>;
   onCancelEdit: () => void;
@@ -28,6 +34,7 @@ export function createShortcutsGrid(options: {
   onEditShortcut: (shortcut: Shortcut) => void;
   onDeleteShortcut: (id: string) => void;
   onRenameGroup: (groupId: string, title: string) => void;
+  onSetGroupAccent: (groupId: string, accentColor: string) => void;
   onDeleteGroup: (groupId: string) => void;
   onReorderHome: (orderedIds: string[]) => void;
   onDropOnGroup: (groupId: string, shortcutId: string) => void;
@@ -137,8 +144,10 @@ export function createShortcutsGrid(options: {
   const sheetGrid = overlay.querySelector('.group-sheet-grid') as HTMLElement;
   const sheetEmpty = overlay.querySelector('.group-sheet-empty') as HTMLElement;
   const sheetRenameBtn = overlay.querySelector('.group-sheet-rename') as HTMLButtonElement;
+  const sheetAccents = overlay.querySelector('#group-sheet-accents') as HTMLElement;
   const nameTitleEl = nameModal.querySelector('#group-name-title') as HTMLElement;
   const nameInput = nameModal.querySelector('#group-name-input') as HTMLInputElement;
+  const nameAccents = nameModal.querySelector('#group-name-accents') as HTMLElement;
   const nameError = nameModal.querySelector('#group-name-error') as HTMLElement;
   const confirmTitleEl = confirmModal.querySelector('#group-confirm-title') as HTMLElement;
   const confirmBodyEl = confirmModal.querySelector('#group-confirm-body') as HTMLElement;
@@ -146,6 +155,7 @@ export function createShortcutsGrid(options: {
   let nameMode: { type: 'create' } | { type: 'rename'; groupId: string } | null = null;
   let confirmGroupId: string | null = null;
   let inlineRenaming = false;
+  let selectedAccent: string = GROUP_ACCENT_PALETTE[0];
 
   primaryBtn.addEventListener('click', () => {
     if (editing) void options.onSaveEdit();
@@ -272,6 +282,25 @@ export function createShortcutsGrid(options: {
     }
   }
 
+  function paintAccentSwatches(
+    host: HTMLElement,
+    selected: string,
+    onPick: (color: string) => void,
+  ): void {
+    host.innerHTML = GROUP_ACCENT_PALETTE.map((color) => {
+      const active = color.toLowerCase() === selected.toLowerCase();
+      return `<button type="button" class="group-accent-swatch ${active ? 'is-selected' : ''}"
+        role="option" aria-selected="${active}" data-color="${escapeAttr(color)}"
+        style="--swatch: ${escapeAttr(color)}" title="${escapeAttr(color)}"></button>`;
+    }).join('');
+    host.querySelectorAll<HTMLButtonElement>('.group-accent-swatch').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const color = normalizeGroupAccentColor(btn.dataset.color ?? '');
+        onPick(color);
+      });
+    });
+  }
+
   function openNameModal(
     mode: { type: 'create' } | { type: 'rename'; groupId: string },
     initial: string,
@@ -280,6 +309,21 @@ export function createShortcutsGrid(options: {
     nameTitleEl.textContent = mode.type === 'create' ? 'New group' : 'Rename group';
     nameInput.value = initial;
     nameError.textContent = '';
+    if (mode.type === 'create') {
+      selectedAccent = nextGroupAccent(settings?.groups ?? []);
+    } else {
+      selectedAccent = normalizeGroupAccentColor(
+        groupById(mode.groupId)?.accentColor,
+        nextGroupAccent(settings?.groups ?? []),
+      );
+    }
+    const bindModalSwatches = () => {
+      paintAccentSwatches(nameAccents, selectedAccent, (color) => {
+        selectedAccent = color;
+        bindModalSwatches();
+      });
+    };
+    bindModalSwatches();
     nameModal.classList.add('open');
     nameInput.focus();
     nameInput.select();
@@ -300,10 +344,14 @@ export function createShortcutsGrid(options: {
       return;
     }
     if (nameMode.type === 'create') {
-      options.onAddGroup(trimmed);
+      options.onAddGroup(trimmed, selectedAccent);
     } else {
       options.onRenameGroup(nameMode.groupId, trimmed);
-      if (openGroupId === nameMode.groupId) sheetTitle.textContent = trimmed;
+      if (selectedAccent) options.onSetGroupAccent(nameMode.groupId, selectedAccent);
+      if (openGroupId === nameMode.groupId) {
+        sheetTitle.textContent = trimmed;
+        sheet.style.setProperty('--group-accent', selectedAccent);
+      }
     }
     closeNameModal();
   }

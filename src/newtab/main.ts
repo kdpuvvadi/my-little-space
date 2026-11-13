@@ -276,9 +276,9 @@ async function main(): Promise<void> {
 
   const shortcutsGrid = createShortcutsGrid({
     onAdd: () => shortcutModal.openCreate(),
-    onAddGroup: (title) => {
-      const group = newGroup(title);
+    onAddGroup: (title, accentColor) => {
       const d = activeDraft();
+      const group = newGroup(title, { accentColor, existing: d.groups });
       setDraft({
         shortcuts: d.shortcuts,
         groups: [...d.groups, group],
@@ -363,6 +363,15 @@ async function main(): Promise<void> {
       setDraft({
         ...d,
         groups: d.groups.map((g) => (g.id === groupId ? { ...g, title } : g)),
+      });
+    },
+    onSetGroupAccent: (groupId, accentColor) => {
+      const d = activeDraft();
+      setDraft({
+        ...d,
+        groups: d.groups.map((g) =>
+          g.id === groupId ? { ...g, accentColor } : g,
+        ),
       });
     },
     onDeleteGroup: (groupId) => {
