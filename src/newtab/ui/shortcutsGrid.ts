@@ -12,6 +12,7 @@ import {
 } from '../../shared/siteIcons';
 import { resolveShortcutTitle } from '../../shared/siteTitles';
 import type { Settings, Shortcut, ShortcutGroup } from '../../shared/types';
+import { createColorWheelPicker } from './colorWheelPicker';
 import { closeSvg, plusSvg } from './icons';
 
 const HOLD_MS = 180;
@@ -70,29 +71,25 @@ export function createShortcutsGrid(options: {
     <div class="group-overlay-backdrop" data-close="1"></div>
     <div class="group-sheet" role="dialog" aria-modal="true" aria-labelledby="group-sheet-title" tabindex="-1">
       <div class="group-sheet-header">
-        <div class="group-sheet-title-wrap">
-          <h3 id="group-sheet-title" class="group-sheet-title"></h3>
-          <input
-            type="text"
-            class="group-sheet-title-input hidden"
-            id="group-sheet-title-input"
-            maxlength="48"
-            autocomplete="off"
-            aria-label="Group name"
-          />
+        <div class="group-sheet-title-row">
+          <div class="group-sheet-cwp-host" id="group-sheet-cwp"></div>
+          <div class="group-sheet-title-wrap">
+            <h3 id="group-sheet-title" class="group-sheet-title"></h3>
+            <input
+              type="text"
+              class="group-sheet-title-input hidden"
+              id="group-sheet-title-input"
+              maxlength="48"
+              autocomplete="off"
+              aria-label="Group name"
+            />
+          </div>
         </div>
         <div class="group-sheet-header-actions">
           <button type="button" class="icon-btn group-sheet-rename hidden" title="Rename group" aria-label="Rename group">✎</button>
           <button type="button" class="icon-btn group-sheet-close" data-close="1" title="Close" aria-label="Close">
             ${closeSvg}
           </button>
-        </div>
-      </div>
-      <div class="group-sheet-accents hidden" id="group-sheet-accents">
-        <label class="group-accent-picker-label" for="group-sheet-color">Accent</label>
-        <div class="group-accent-picker">
-          <input type="color" id="group-sheet-color" value="#536a49" />
-          <span class="group-accent-hex" id="group-sheet-color-hex">#536a49</span>
         </div>
       </div>
       <div class="group-sheet-grid"></div>
@@ -105,17 +102,13 @@ export function createShortcutsGrid(options: {
   nameModal.className = 'modal-root group-name-modal';
   nameModal.innerHTML = `
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="group-name-title">
-      <h3 id="group-name-title">Group name</h3>
+      <div class="group-name-title-row">
+        <div class="group-name-cwp-host" id="group-name-cwp"></div>
+        <h3 id="group-name-title">Group name</h3>
+      </div>
       <div class="field">
         <label for="group-name-input">Name</label>
         <input type="text" id="group-name-input" maxlength="48" autocomplete="off" />
-      </div>
-      <div class="field">
-        <label class="group-accent-picker-label" for="group-name-color">Accent</label>
-        <div class="group-accent-picker">
-          <input type="color" id="group-name-color" value="#536a49" />
-          <span class="group-accent-hex" id="group-name-color-hex">#536a49</span>
-        </div>
       </div>
       <p class="panel-error" id="group-name-error"></p>
       <div class="modal-actions">
@@ -153,13 +146,10 @@ export function createShortcutsGrid(options: {
   const sheetGrid = overlay.querySelector('.group-sheet-grid') as HTMLElement;
   const sheetEmpty = overlay.querySelector('.group-sheet-empty') as HTMLElement;
   const sheetRenameBtn = overlay.querySelector('.group-sheet-rename') as HTMLButtonElement;
-  const sheetAccents = overlay.querySelector('#group-sheet-accents') as HTMLElement;
-  const sheetColorInput = overlay.querySelector('#group-sheet-color') as HTMLInputElement;
-  const sheetColorHex = overlay.querySelector('#group-sheet-color-hex') as HTMLElement;
+  const sheetCwpHost = overlay.querySelector('#group-sheet-cwp') as HTMLElement;
   const nameTitleEl = nameModal.querySelector('#group-name-title') as HTMLElement;
   const nameInput = nameModal.querySelector('#group-name-input') as HTMLInputElement;
-  const nameColorInput = nameModal.querySelector('#group-name-color') as HTMLInputElement;
-  const nameColorHex = nameModal.querySelector('#group-name-color-hex') as HTMLElement;
+  const nameCwpHost = nameModal.querySelector('#group-name-cwp') as HTMLElement;
   const nameError = nameModal.querySelector('#group-name-error') as HTMLElement;
   const confirmTitleEl = confirmModal.querySelector('#group-confirm-title') as HTMLElement;
   const confirmBodyEl = confirmModal.querySelector('#group-confirm-body') as HTMLElement;
@@ -168,6 +158,25 @@ export function createShortcutsGrid(options: {
   let confirmGroupId: string | null = null;
   let inlineRenaming = false;
   let selectedAccent: string = GROUP_ACCENT_PALETTE[0];
+
+  const sheetColorPicker = createColorWheelPicker({
+    initialColor: selectedAccent,
+    onChange: (hex) => {
+      if (!openGroupId) return;
+      const color = normalizeGroupAccentColor(hex);
+      sheet.style.setProperty('--group-accent', color);
+      options.onSetGroupAccent(openGroupId, color);
+    },
+  });
+  sheetCwpHost.append(sheetColorPicker.root);
+
+  const nameColorPicker = createColorWheelPicker({
+    initialColor: selectedAccent,
+    onChange: (hex) => {
+      selectedAccent = normalizeGroupAccentColor(hex);
+    },
+  });
+  nameCwpHost.append(nameColorPicker.root);
 
   primaryBtn.addEventListener('click', () => {
     if (editing) void options.onSaveEdit();
@@ -185,19 +194,6 @@ export function createShortcutsGrid(options: {
 
   sheetRenameBtn.addEventListener('click', () => {
     beginInlineRename();
-  });
-
-  nameColorInput.addEventListener('input', () => {
-    selectedAccent = normalizeGroupAccentColor(nameColorInput.value);
-    nameColorHex.textContent = selectedAccent;
-  });
-
-  sheetColorInput.addEventListener('input', () => {
-    if (!openGroupId) return;
-    const color = normalizeGroupAccentColor(sheetColorInput.value);
-    sheetColorHex.textContent = color;
-    sheet.style.setProperty('--group-accent', color);
-    options.onSetGroupAccent(openGroupId, color);
   });
 
   sheetTitle.addEventListener('dblclick', () => {
@@ -307,16 +303,6 @@ export function createShortcutsGrid(options: {
     }
   }
 
-  function setAccentPicker(
-    input: HTMLInputElement,
-    hexEl: HTMLElement,
-    color: string,
-  ): void {
-    const normalized = normalizeGroupAccentColor(color);
-    input.value = normalized;
-    hexEl.textContent = normalized;
-  }
-
   function openNameModal(
     mode: { type: 'create' } | { type: 'rename'; groupId: string },
     initial: string,
@@ -333,13 +319,14 @@ export function createShortcutsGrid(options: {
         nextGroupAccent(settings?.groups ?? []),
       );
     }
-    setAccentPicker(nameColorInput, nameColorHex, selectedAccent);
+    nameColorPicker.setColor(selectedAccent);
     nameModal.classList.add('open');
     nameInput.focus();
     nameInput.select();
   }
 
   function closeNameModal(): void {
+    nameColorPicker.close();
     nameModal.classList.remove('open');
     nameMode = null;
     nameError.textContent = '';
@@ -598,10 +585,7 @@ export function createShortcutsGrid(options: {
     const group = groupById(groupId);
     if (!group) return;
     sheet.style.setProperty('--group-accent', group.accentColor);
-    sheetAccents.classList.toggle('hidden', !editing);
-    if (editing) {
-      setAccentPicker(sheetColorInput, sheetColorHex, group.accentColor);
-    }
+    sheetColorPicker.setColor(group.accentColor);
     if (!inlineRenaming) {
       sheetTitle.textContent = group.title;
     }
@@ -677,6 +661,7 @@ export function createShortcutsGrid(options: {
     if (!openGroupId && !overlay.classList.contains('is-active')) return;
 
     if (inlineRenaming) cancelInlineRename();
+    sheetColorPicker.close();
 
     if (sheetOpenRaf) {
       cancelAnimationFrame(sheetOpenRaf);
