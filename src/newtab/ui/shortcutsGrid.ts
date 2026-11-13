@@ -160,6 +160,20 @@ export function createShortcutsGrid(options: {
     beginInlineRename();
   });
 
+  sheetTitleInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      commitInlineRename();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      cancelInlineRename();
+    }
+  });
+  sheetTitleInput.addEventListener('blur', () => {
+    if (inlineRenaming) commitInlineRename();
+  });
+
   nameModal.querySelector('#group-name-cancel')?.addEventListener('click', () => closeNameModal());
   nameModal.addEventListener('click', (e) => {
     if (e.target === nameModal) closeNameModal();
@@ -220,6 +234,28 @@ export function createShortcutsGrid(options: {
     sheetTitleInput.classList.add('hidden');
     sheetTitle.classList.remove('hidden');
     sheetRenameBtn.classList.toggle('hidden', !editing);
+  }
+
+  function cancelInlineRename(): void {
+    if (!inlineRenaming) return;
+    const group = openGroupId ? groupById(openGroupId) : undefined;
+    if (group) sheetTitle.textContent = group.title;
+    endInlineRenameUi();
+  }
+
+  function commitInlineRename(): void {
+    if (!inlineRenaming || !openGroupId) return;
+    const group = groupById(openGroupId);
+    const trimmed = sheetTitleInput.value.trim();
+    if (!trimmed) {
+      sheetTitleInput.focus();
+      return;
+    }
+    endInlineRenameUi();
+    sheetTitle.textContent = trimmed;
+    if (group && trimmed !== group.title) {
+      options.onRenameGroup(openGroupId, trimmed);
+    }
   }
 
   function openNameModal(
