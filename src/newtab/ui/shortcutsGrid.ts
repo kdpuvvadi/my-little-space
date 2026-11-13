@@ -63,7 +63,17 @@ export function createShortcutsGrid(options: {
     <div class="group-overlay-backdrop" data-close="1"></div>
     <div class="group-sheet" role="dialog" aria-modal="true" aria-labelledby="group-sheet-title" tabindex="-1">
       <div class="group-sheet-header">
-        <h3 id="group-sheet-title" class="group-sheet-title"></h3>
+        <div class="group-sheet-title-wrap">
+          <h3 id="group-sheet-title" class="group-sheet-title"></h3>
+          <input
+            type="text"
+            class="group-sheet-title-input hidden"
+            id="group-sheet-title-input"
+            maxlength="48"
+            autocomplete="off"
+            aria-label="Group name"
+          />
+        </div>
         <div class="group-sheet-header-actions">
           <button type="button" class="icon-btn group-sheet-rename hidden" title="Rename group" aria-label="Rename group">✎</button>
           <button type="button" class="icon-btn group-sheet-close" data-close="1" title="Close" aria-label="Close">
