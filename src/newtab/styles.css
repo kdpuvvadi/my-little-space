@@ -735,14 +735,18 @@ a {
 }
 
 /* Groups (folders) */
+.group-item {
+  --group-accent: var(--accent);
+}
+
 .group-tile {
-  border: 2px solid color-mix(in srgb, var(--accent) 55%, var(--panel-border));
+  border: 2px solid color-mix(in srgb, var(--group-accent) 70%, var(--panel-border));
   padding: 0;
   cursor: pointer;
   color: inherit;
   font: inherit;
-  background: color-mix(in srgb, var(--tile-3) 70%, var(--panel-bg));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent);
+  background: color-mix(in srgb, var(--group-accent) 14%, var(--panel-bg));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--group-accent) 18%, transparent);
 }
 
 .group-preview {
@@ -813,16 +817,16 @@ a {
   padding: 0 4px;
   border-radius: 999px;
   background: var(--panel-bg);
-  border: 1px solid var(--panel-border);
+  border: 1px solid color-mix(in srgb, var(--group-accent) 40%, var(--panel-border));
   font-size: 0.62rem;
   line-height: 14px;
   text-align: center;
-  color: var(--muted);
+  color: color-mix(in srgb, var(--group-accent) 55%, var(--muted));
   pointer-events: none;
 }
 
 .shortcut-item.is-drop-target .group-tile {
-  outline: 2px solid var(--accent, #3b82f6);
+  outline: 2px solid var(--group-accent);
   outline-offset: 3px;
   transform: scale(1.08);
   box-shadow: var(--shadow);
@@ -880,7 +884,8 @@ a {
   overflow: auto;
   padding: 1.15rem 1.15rem 1.35rem;
   border-radius: 20px;
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--panel-border));
+  --group-accent: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--group-accent) 45%, var(--panel-border));
   background: var(--panel-bg);
   box-shadow: 0 24px 60px var(--overlay);
   transform: translateY(28px) scale(0.9);
@@ -946,7 +951,7 @@ a {
   margin: 0;
   padding: 0.2rem 0.45rem;
   border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--panel-border));
+  border: 1px solid color-mix(in srgb, var(--group-accent) 45%, var(--panel-border));
   background: var(--panel-bg);
   color: inherit;
   font: inherit;
@@ -956,13 +961,43 @@ a {
 
 .group-sheet-title-input:focus {
   outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+  border-color: var(--group-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--group-accent) 22%, transparent);
 }
+
 
 .group-name-modal,
 .group-confirm-modal {
   z-index: 90;
+}
+
+.group-accent-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+}
+
+.group-accent-swatch {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background: var(--swatch, var(--accent));
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #000 12%, transparent);
+}
+
+.group-accent-swatch.is-selected {
+  border-color: var(--text);
+  box-shadow:
+    0 0 0 2px var(--panel-bg),
+    0 0 0 4px color-mix(in srgb, var(--swatch) 70%, var(--text));
+}
+
+.group-sheet-accents {
+  margin: 0 0 0.85rem;
 }
 
 .group-sheet-grid {
