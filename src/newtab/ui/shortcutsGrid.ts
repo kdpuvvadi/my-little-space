@@ -534,6 +534,7 @@ export function createShortcutsGrid(options: {
     if (!settings) return;
     const group = groupById(groupId);
     if (!group) return;
+    sheet.style.setProperty('--group-accent', group.accentColor);
     if (!inlineRenaming) {
       sheetTitle.textContent = group.title;
     }
