@@ -83,7 +83,7 @@ export function createShortcutsGrid(options: {
               aria-label="Group name"
             />
           </div>
-          <div class="group-sheet-cwp-host" id="group-sheet-cwp"></div>
+          <span class="group-sheet-cwp-host" id="group-sheet-cwp"></span>
         </div>
         <div class="group-sheet-header-actions">
           <button type="button" class="icon-btn group-sheet-rename hidden" title="Rename group" aria-label="Rename group">✎</button>
@@ -102,10 +102,10 @@ export function createShortcutsGrid(options: {
   nameModal.className = 'modal-root group-name-modal';
   nameModal.innerHTML = `
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="group-name-title">
-      <div class="group-name-title-row">
-        <h3 id="group-name-title">Group name</h3>
-        <div class="group-name-cwp-host" id="group-name-cwp"></div>
-      </div>
+      <h3 class="group-name-heading" id="group-name-title">
+        <span class="group-name-heading-text">Group name</span>
+        <span class="group-name-cwp-host" id="group-name-cwp"></span>
+      </h3>
       <div class="field">
         <label for="group-name-input">Name</label>
         <input type="text" id="group-name-input" maxlength="48" autocomplete="off" />
@@ -147,7 +147,7 @@ export function createShortcutsGrid(options: {
   const sheetEmpty = overlay.querySelector('.group-sheet-empty') as HTMLElement;
   const sheetRenameBtn = overlay.querySelector('.group-sheet-rename') as HTMLButtonElement;
   const sheetCwpHost = overlay.querySelector('#group-sheet-cwp') as HTMLElement;
-  const nameTitleEl = nameModal.querySelector('#group-name-title') as HTMLElement;
+  const nameTitleEl = nameModal.querySelector('.group-name-heading-text') as HTMLElement;
   const nameInput = nameModal.querySelector('#group-name-input') as HTMLInputElement;
   const nameCwpHost = nameModal.querySelector('#group-name-cwp') as HTMLElement;
   const nameError = nameModal.querySelector('#group-name-error') as HTMLElement;
