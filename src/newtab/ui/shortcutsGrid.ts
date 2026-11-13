@@ -154,9 +154,12 @@ export function createShortcutsGrid(options: {
   const sheetEmpty = overlay.querySelector('.group-sheet-empty') as HTMLElement;
   const sheetRenameBtn = overlay.querySelector('.group-sheet-rename') as HTMLButtonElement;
   const sheetAccents = overlay.querySelector('#group-sheet-accents') as HTMLElement;
+  const sheetColorInput = overlay.querySelector('#group-sheet-color') as HTMLInputElement;
+  const sheetColorHex = overlay.querySelector('#group-sheet-color-hex') as HTMLElement;
   const nameTitleEl = nameModal.querySelector('#group-name-title') as HTMLElement;
   const nameInput = nameModal.querySelector('#group-name-input') as HTMLInputElement;
-  const nameAccents = nameModal.querySelector('#group-name-accents') as HTMLElement;
+  const nameColorInput = nameModal.querySelector('#group-name-color') as HTMLInputElement;
+  const nameColorHex = nameModal.querySelector('#group-name-color-hex') as HTMLElement;
   const nameError = nameModal.querySelector('#group-name-error') as HTMLElement;
   const confirmTitleEl = confirmModal.querySelector('#group-confirm-title') as HTMLElement;
   const confirmBodyEl = confirmModal.querySelector('#group-confirm-body') as HTMLElement;
@@ -182,6 +185,19 @@ export function createShortcutsGrid(options: {
 
   sheetRenameBtn.addEventListener('click', () => {
     beginInlineRename();
+  });
+
+  nameColorInput.addEventListener('input', () => {
+    selectedAccent = normalizeGroupAccentColor(nameColorInput.value);
+    nameColorHex.textContent = selectedAccent;
+  });
+
+  sheetColorInput.addEventListener('input', () => {
+    if (!openGroupId) return;
+    const color = normalizeGroupAccentColor(sheetColorInput.value);
+    sheetColorHex.textContent = color;
+    sheet.style.setProperty('--group-accent', color);
+    options.onSetGroupAccent(openGroupId, color);
   });
 
   sheetTitle.addEventListener('dblclick', () => {
@@ -291,23 +307,14 @@ export function createShortcutsGrid(options: {
     }
   }
 
-  function paintAccentSwatches(
-    host: HTMLElement,
-    selected: string,
-    onPick: (color: string) => void,
+  function setAccentPicker(
+    input: HTMLInputElement,
+    hexEl: HTMLElement,
+    color: string,
   ): void {
-    host.innerHTML = GROUP_ACCENT_PALETTE.map((color) => {
-      const active = color.toLowerCase() === selected.toLowerCase();
-      return `<button type="button" class="group-accent-swatch ${active ? 'is-selected' : ''}"
-        role="option" aria-selected="${active}" data-color="${escapeAttr(color)}"
-        style="--swatch: ${escapeAttr(color)}" title="${escapeAttr(color)}"></button>`;
-    }).join('');
-    host.querySelectorAll<HTMLButtonElement>('.group-accent-swatch').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const color = normalizeGroupAccentColor(btn.dataset.color ?? '');
-        onPick(color);
-      });
-    });
+    const normalized = normalizeGroupAccentColor(color);
+    input.value = normalized;
+    hexEl.textContent = normalized;
   }
 
   function openNameModal(
@@ -326,13 +333,7 @@ export function createShortcutsGrid(options: {
         nextGroupAccent(settings?.groups ?? []),
       );
     }
-    const bindModalSwatches = () => {
-      paintAccentSwatches(nameAccents, selectedAccent, (color) => {
-        selectedAccent = color;
-        bindModalSwatches();
-      });
-    };
-    bindModalSwatches();
+    setAccentPicker(nameColorInput, nameColorHex, selectedAccent);
     nameModal.classList.add('open');
     nameInput.focus();
     nameInput.select();
@@ -599,16 +600,7 @@ export function createShortcutsGrid(options: {
     sheet.style.setProperty('--group-accent', group.accentColor);
     sheetAccents.classList.toggle('hidden', !editing);
     if (editing) {
-      const bindSheetSwatches = (current: string) => {
-        paintAccentSwatches(sheetAccents, current, (color) => {
-          options.onSetGroupAccent(groupId, color);
-          sheet.style.setProperty('--group-accent', color);
-          bindSheetSwatches(color);
-        });
-      };
-      bindSheetSwatches(group.accentColor);
-    } else {
-      sheetAccents.innerHTML = '';
+      setAccentPicker(sheetColorInput, sheetColorHex, group.accentColor);
     }
     if (!inlineRenaming) {
       sheetTitle.textContent = group.title;
