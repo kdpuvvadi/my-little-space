@@ -603,6 +603,8 @@ export function createShortcutsGrid(options: {
   function closeGroupSheet(immediate = false): void {
     if (!openGroupId && !overlay.classList.contains('is-active')) return;
 
+    if (inlineRenaming) cancelInlineRename();
+
     if (sheetOpenRaf) {
       cancelAnimationFrame(sheetOpenRaf);
       sheetOpenRaf = 0;
