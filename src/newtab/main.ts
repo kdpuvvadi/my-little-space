@@ -1,15 +1,28 @@
 import { resolveMetaServiceUrl } from '../shared/buildConfig';
 import { fetchCatFact } from '../shared/catFact';
+import {
+  addShortcutToGroup,
+  deleteGroup,
+  newGroup,
+  normalizeHomeOrder,
+  removeShortcutFromGroup,
+} from '../shared/groups';
 import { fetchSiteMeta, isMetaExpired } from '../shared/siteMetaClient';
 import { loadSettings, saveSettings, updateSettings } from '../shared/storage';
 import { applyTheme, watchSystemTheme } from '../shared/theme';
-import type { Settings, Shortcut, ThemeMode } from '../shared/types';
+import type { Settings, Shortcut, ShortcutGroup, ThemeMode } from '../shared/types';
 import { logoSvg, moonSvg, slidersSvg, sunSvg, systemSvg } from './ui/icons';
 import { createSearchBar } from './ui/searchBar';
 import { createSettingsPanel } from './ui/settingsPanel';
 import { createShortcutModal } from './ui/shortcutModal';
 import { createShortcutsGrid } from './ui/shortcutsGrid';
 import './styles.css';
+
+type ShortcutsDraft = {
+  shortcuts: Shortcut[];
+  groups: ShortcutGroup[];
+  homeOrder: string[];
+};
 
 function formatDate(date: Date): string {
   return date.toLocaleDateString(undefined, {
@@ -193,6 +206,21 @@ function applyBranding(
   syncThemeButtons(els, settings.theme);
 }
 
+function cloneDraft(from: {
+  shortcuts: Shortcut[];
+  groups: ShortcutGroup[];
+  homeOrder: string[];
+}): ShortcutsDraft {
+  return {
+    shortcuts: from.shortcuts.map((s) => ({ ...s })),
+    groups: from.groups.map((g) => ({
+      ...g,
+      shortcutIds: [...g.shortcutIds],
+    })),
+    homeOrder: [...from.homeOrder],
+  };
+}
+
 async function main(): Promise<void> {
   const app = document.getElementById('app');
   if (!app) return;
@@ -204,26 +232,38 @@ async function main(): Promise<void> {
 
   let editingShortcuts = false;
   /** Working copy while editing — persisted only on Save; discarded on Cancel. */
-  let draftShortcuts: Shortcut[] | null = null;
+  let draft: ShortcutsDraft | null = null;
   const shell = renderShell(app);
 
-  const cloneShortcuts = (list: Shortcut[]): Shortcut[] =>
-    list.map((s) => ({ ...s }));
+  const activeDraft = (): ShortcutsDraft =>
+    editingShortcuts && draft
+      ? draft
+      : {
+          shortcuts: settings.shortcuts,
+          groups: settings.groups,
+          homeOrder: settings.homeOrder,
+        };
 
-  const activeShortcuts = (): Shortcut[] =>
-    editingShortcuts && draftShortcuts ? draftShortcuts : settings.shortcuts;
-
-  const viewSettings = (): Settings =>
-    editingShortcuts && draftShortcuts
-      ? { ...settings, shortcuts: draftShortcuts }
-      : settings;
+  const viewSettings = (): Settings => {
+    const d = activeDraft();
+    return {
+      ...settings,
+      shortcuts: d.shortcuts,
+      groups: d.groups,
+      homeOrder: normalizeHomeOrder(d.homeOrder, d.shortcuts, d.groups),
+    };
+  };
 
   const paintShortcuts = () => {
     shortcutsGrid.setSettings(viewSettings(), editingShortcuts);
   };
 
-  const setDraft = (next: Shortcut[]) => {
-    draftShortcuts = next;
+  const setDraft = (next: ShortcutsDraft) => {
+    draft = {
+      shortcuts: next.shortcuts,
+      groups: next.groups,
+      homeOrder: normalizeHomeOrder(next.homeOrder, next.shortcuts, next.groups),
+    };
     paintShortcuts();
   };
 
@@ -236,21 +276,42 @@ async function main(): Promise<void> {
 
   const shortcutsGrid = createShortcutsGrid({
     onAdd: () => shortcutModal.openCreate(),
+    onAddGroup: () => {
+      const name = window.prompt('Group name', 'New group');
+      if (name === null) return;
+      const group = newGroup(name);
+      const d = activeDraft();
+      setDraft({
+        shortcuts: d.shortcuts,
+        groups: [...d.groups, group],
+        homeOrder: [...d.homeOrder, group.id],
+      });
+    },
     onBeginEdit: () => {
-      draftShortcuts = cloneShortcuts(settings.shortcuts);
+      draft = cloneDraft(settings);
       editingShortcuts = true;
       paintShortcuts();
     },
     onSaveEdit: async () => {
-      if (!draftShortcuts) return;
-      settings = await updateSettings({ shortcuts: cloneShortcuts(draftShortcuts) });
-      draftShortcuts = null;
+      if (!draft) return;
+      const normalized = cloneDraft(draft);
+      normalized.homeOrder = normalizeHomeOrder(
+        normalized.homeOrder,
+        normalized.shortcuts,
+        normalized.groups,
+      );
+      settings = await updateSettings({
+        shortcuts: normalized.shortcuts,
+        groups: normalized.groups,
+        homeOrder: normalized.homeOrder,
+      });
+      draft = null;
       editingShortcuts = false;
       paintShortcuts();
       settingsPanel.setSettings(settings);
     },
     onCancelEdit: () => {
-      draftShortcuts = null;
+      draft = null;
       editingShortcuts = false;
       paintShortcuts();
     },
@@ -259,15 +320,15 @@ async function main(): Promise<void> {
       try {
         const serviceUrl = resolveMetaServiceUrl(settings.metaServiceUrl);
         const now = Date.now();
-        const source = activeShortcuts();
-        const next: Shortcut[] = [];
-        for (const sc of source) {
+        const d = activeDraft();
+        const nextShortcuts: Shortcut[] = [];
+        for (const sc of d.shortcuts) {
           if (sc.iconCustom || !isMetaExpired(sc.metaFetchedAt, now)) {
-            next.push(sc);
+            nextShortcuts.push(sc);
             continue;
           }
           const meta = await fetchSiteMeta(sc.url, serviceUrl);
-          next.push({
+          nextShortcuts.push({
             ...sc,
             title: meta.title,
             iconUrl: meta.icon,
@@ -276,9 +337,9 @@ async function main(): Promise<void> {
           });
         }
         if (editingShortcuts) {
-          setDraft(next);
+          setDraft({ ...d, shortcuts: nextShortcuts });
         } else {
-          settings = await updateSettings({ shortcuts: next });
+          settings = await updateSettings({ shortcuts: nextShortcuts });
           paintShortcuts();
           settingsPanel.setSettings(settings);
         }
@@ -288,37 +349,79 @@ async function main(): Promise<void> {
     },
     onEditShortcut: (shortcut) => shortcutModal.openEdit(shortcut),
     onDeleteShortcut: (id) => {
-      setDraft(activeShortcuts().filter((s) => s.id !== id));
+      const d = activeDraft();
+      const groups = d.groups.map((g) => ({
+        ...g,
+        shortcutIds: g.shortcutIds.filter((sid) => sid !== id),
+      }));
+      setDraft({
+        shortcuts: d.shortcuts.filter((s) => s.id !== id),
+        groups,
+        homeOrder: d.homeOrder.filter((hid) => hid !== id),
+      });
     },
-    onReorder: (orderedIds) => {
-      const byId = new Map(activeShortcuts().map((s) => [s.id, s]));
-      const reordered = orderedIds
-        .map((id) => byId.get(id))
-        .filter((s): s is Shortcut => Boolean(s));
-      for (const s of activeShortcuts()) {
-        if (!orderedIds.includes(s.id)) reordered.push(s);
-      }
-      setDraft(reordered);
+    onRenameGroup: (groupId, title) => {
+      const d = activeDraft();
+      setDraft({
+        ...d,
+        groups: d.groups.map((g) => (g.id === groupId ? { ...g, title } : g)),
+      });
+    },
+    onDeleteGroup: (groupId) => {
+      const d = activeDraft();
+      const next = deleteGroup(d.groups, d.homeOrder, groupId);
+      setDraft({
+        shortcuts: d.shortcuts,
+        groups: next.groups,
+        homeOrder: next.homeOrder,
+      });
+    },
+    onReorderHome: (orderedIds) => {
+      const d = activeDraft();
+      setDraft({ ...d, homeOrder: orderedIds });
+    },
+    onDropOnGroup: (groupId, shortcutId) => {
+      const d = activeDraft();
+      const next = addShortcutToGroup(d.groups, d.homeOrder, groupId, shortcutId);
+      setDraft({
+        shortcuts: d.shortcuts,
+        groups: next.groups,
+        homeOrder: next.homeOrder,
+      });
+    },
+    onRemoveFromGroup: (groupId, shortcutId) => {
+      const d = activeDraft();
+      const next = removeShortcutFromGroup(d.groups, d.homeOrder, groupId, shortcutId);
+      setDraft({
+        shortcuts: d.shortcuts,
+        groups: next.groups,
+        homeOrder: next.homeOrder,
+      });
     },
   });
 
   const shortcutModal = createShortcutModal({
     getMetaServiceUrl: () => resolveMetaServiceUrl(settings.metaServiceUrl),
     onSave: async (shortcut: Shortcut) => {
-      const list = activeShortcuts();
-      const existing = list.findIndex((s) => s.id === shortcut.id);
+      const d = activeDraft();
+      const existing = d.shortcuts.findIndex((s) => s.id === shortcut.id);
       const shortcuts =
         existing >= 0
-          ? list.map((s) => (s.id === shortcut.id ? shortcut : s))
-          : [...list, shortcut];
+          ? d.shortcuts.map((s) => (s.id === shortcut.id ? shortcut : s))
+          : [...d.shortcuts, shortcut];
+      const homeOrder =
+        existing >= 0
+          ? d.homeOrder
+          : d.homeOrder.includes(shortcut.id)
+            ? d.homeOrder
+            : [...d.homeOrder, shortcut.id];
 
       if (editingShortcuts) {
-        // Stay in edit mode — only commit when Save is pressed.
-        setDraft(shortcuts);
+        setDraft({ shortcuts, groups: d.groups, homeOrder });
         return;
       }
 
-      settings = await updateSettings({ shortcuts });
+      settings = await updateSettings({ shortcuts, homeOrder });
       paintShortcuts();
       settingsPanel.setSettings(settings);
     },
@@ -326,9 +429,8 @@ async function main(): Promise<void> {
 
   const refreshUi = (next: Settings) => {
     settings = next;
-    // Drop any in-progress edit session if settings reload from elsewhere.
     editingShortcuts = false;
-    draftShortcuts = null;
+    draft = null;
     applyTheme(settings.theme);
     stopThemeWatch();
     stopThemeWatch = watchSystemTheme(settings.theme, () => applyTheme(settings.theme));

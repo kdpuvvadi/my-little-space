@@ -12,6 +12,8 @@ const KNOWN_TOP_KEYS = new Set([
   'enabledProviderIds',
   'selectedProviderId',
   'shortcuts',
+  'groups',
+  'homeOrder',
   'branding',
 ]);
 
@@ -38,6 +40,7 @@ const KNOWN_SHORTCUT_KEYS = new Set([
   'metaFetchedAt',
   'iconCustom',
 ]);
+const KNOWN_GROUP_KEYS = new Set(['id', 'title', 'shortcutIds']);
 const KNOWN_PROVIDER_KEYS = new Set(['id', 'name', 'bang', 'searchUrl']);
 
 export type YamlImportResult =
@@ -80,6 +83,12 @@ export function settingsToYaml(settings: Settings): string {
         iconCustom,
       }),
     ),
+    groups: settings.groups.map(({ id, title, shortcutIds }) => ({
+      id,
+      title,
+      shortcutIds,
+    })),
+    homeOrder: settings.homeOrder,
   };
   return stringify(payload, { lineWidth: 0 });
 }
@@ -120,6 +129,20 @@ export function yamlToSettings(text: string): YamlImportResult {
             item as Record<string, unknown>,
             KNOWN_SHORTCUT_KEYS,
             `shortcuts[${index}]`,
+          ),
+        );
+      }
+    });
+  }
+
+  if (Array.isArray(root.groups)) {
+    root.groups.forEach((item, index) => {
+      if (item && typeof item === 'object' && !Array.isArray(item)) {
+        unknown.push(
+          ...collectUnknownKeys(
+            item as Record<string, unknown>,
+            KNOWN_GROUP_KEYS,
+            `groups[${index}]`,
           ),
         );
       }
