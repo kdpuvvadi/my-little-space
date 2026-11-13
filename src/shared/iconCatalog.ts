@@ -270,9 +270,8 @@ function slugifyQuery(q: string): string {
 }
 
 /**
- * Search catalog. Empty query returns popular self-hosted first (capped).
- * Non-empty also offers live Simple + Dashboard slug previews when the query
- * looks like an icon id.
+ * Search catalog only — never invent unverified slug rows (those 404 as broken tiles).
+ * Empty query returns popular self-hosted first (capped).
  */
 export function searchIconCatalog(
   query: string,
@@ -302,30 +301,45 @@ export function searchIconCatalog(
   }
   scored.sort((a, b) => b.score - a.score || a.entry.label.localeCompare(b.entry.label));
 
-  const results = scored.map((s) => s.entry);
+  return uniqueCatalog(scored.map((s) => s.entry)).slice(0, limit);
+}
+
+function probeImageUrl(url: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
+    img.referrerPolicy = 'no-referrer';
+    img.src = url;
+  });
+}
+
+/**
+ * If the query looks like an icon slug not already in `known`, probe Simple +
+ * Dashboard CDNs and return only URLs that actually load.
+ */
+export async function probeSlugIcons(
+  query: string,
+  known: CatalogIcon[] = [],
+): Promise<CatalogIcon[]> {
   const slug = slugifyQuery(query);
-  if (slug && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
-    const hasDash = results.some((e) => e.source === 'dashboard' && e.id === slug);
-    const hasSimple = results.some((e) => e.source === 'simple' && e.id === slug);
-    if (!hasDash) {
-      results.unshift({
-        id: slug,
-        label: slug,
-        source: 'dashboard',
-        tags: ['slug'],
-      });
-    }
-    if (!hasSimple) {
-      results.unshift({
-        id: slug,
-        label: slug,
-        source: 'simple',
-        tags: ['slug'],
-      });
-    }
+  if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return [];
+
+  const candidates: CatalogIcon[] = [];
+  if (!known.some((e) => e.source === 'dashboard' && e.id === slug)) {
+    candidates.push({ id: slug, label: slug, source: 'dashboard', tags: ['slug'] });
+  }
+  if (!known.some((e) => e.source === 'simple' && e.id === slug)) {
+    candidates.push({ id: slug, label: slug, source: 'simple', tags: ['slug'] });
   }
 
-  return uniqueCatalog(results).slice(0, limit);
+  const verified: CatalogIcon[] = [];
+  await Promise.all(
+    candidates.map(async (entry) => {
+      if (await probeImageUrl(catalogIconUrl(entry))) verified.push(entry);
+    }),
+  );
+  return verified;
 }
 
 export function guessCatalogFromTitleOrHost(

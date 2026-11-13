@@ -1,4 +1,9 @@
-import { catalogIconUrl, searchIconCatalog } from '../../shared/iconCatalog';
+import {
+  catalogIconUrl,
+  probeSlugIcons,
+  searchIconCatalog,
+  type CatalogIcon,
+} from '../../shared/iconCatalog';
 import {
   guessPageMeta,
   newShortcut,
@@ -103,6 +108,7 @@ export function createShortcutModal(options: {
   let iconPicked = false;
   let pickerOpen = false;
   let searchTimer = 0;
+  let probeToken = 0;
 
   function close(): void {
     root.classList.remove('open');
@@ -182,38 +188,59 @@ export function createShortcutModal(options: {
     }
   }
 
-  function renderIconGrid(query: string): void {
-    const results = searchIconCatalog(query, 48);
-    gridEl.innerHTML = results
-      .map((entry) => {
-        const src = catalogIconUrl(entry);
-        const pack = entry.source === 'simple' ? 'Simple' : 'Dashboard';
-        return `
-        <button type="button" class="icon-picker-item" role="option"
-          data-url="${escapeAttr(src)}"
-          data-label="${escapeAttr(entry.label)}"
-          title="${escapeAttr(`${entry.label} (${pack})`)}">
-          <img src="${escapeAttr(src)}" alt="" decoding="async" referrerpolicy="no-referrer" loading="lazy" />
-          <span>${escapeAttr(entry.label)}</span>
-        </button>`;
-      })
-      .join('');
-
-    for (const btn of gridEl.querySelectorAll<HTMLButtonElement>('.icon-picker-item')) {
-      const img = btn.querySelector('img');
-      if (img) {
-        img.addEventListener('error', () => {
-          btn.classList.add('is-broken');
-        });
-      }
-      btn.addEventListener('click', () => {
-        const u = btn.dataset.url ?? '';
-        if (!u || btn.classList.contains('is-broken')) return;
-        setIconUrl(u, true);
-        setPickerOpen(false);
-        statusEl.textContent = `Icon set to ${btn.dataset.label ?? 'selection'}.`;
+  function bindIconItem(btn: HTMLButtonElement): void {
+    const img = btn.querySelector('img');
+    if (img) {
+      img.addEventListener('error', () => {
+        // Drop invalid CDN hits instead of leaving broken tiles.
+        btn.remove();
       });
     }
+    btn.addEventListener('click', () => {
+      const u = btn.dataset.url ?? '';
+      if (!u) return;
+      setIconUrl(u, true);
+      setPickerOpen(false);
+      statusEl.textContent = `Icon set to ${btn.dataset.label ?? 'selection'}.`;
+    });
+  }
+
+  function iconItemHtml(entry: CatalogIcon): string {
+    const src = catalogIconUrl(entry);
+    const pack = entry.source === 'simple' ? 'Simple' : 'Dashboard';
+    return `
+      <button type="button" class="icon-picker-item" role="option"
+        data-url="${escapeAttr(src)}"
+        data-label="${escapeAttr(entry.label)}"
+        data-key="${escapeAttr(`${entry.source}:${entry.id}`)}"
+        title="${escapeAttr(`${entry.label} (${pack})`)}">
+        <img src="${escapeAttr(src)}" alt="" decoding="async" referrerpolicy="no-referrer" loading="lazy" />
+        <span>${escapeAttr(entry.label)}</span>
+      </button>`;
+  }
+
+  function renderIconGrid(query: string): void {
+    const token = ++probeToken;
+    const results = searchIconCatalog(query, 48);
+    gridEl.innerHTML = results.map(iconItemHtml).join('');
+    for (const btn of gridEl.querySelectorAll<HTMLButtonElement>('.icon-picker-item')) {
+      bindIconItem(btn);
+    }
+
+    // Only append freeform slug tiles after CDN probe succeeds (no broken placeholders).
+    void probeSlugIcons(query, results).then((extra) => {
+      if (token !== probeToken || !extra.length) return;
+      const existing = new Set(
+        [...gridEl.querySelectorAll<HTMLElement>('[data-key]')].map((el) => el.dataset.key),
+      );
+      for (const entry of extra) {
+        const key = `${entry.source}:${entry.id}`;
+        if (existing.has(key)) continue;
+        gridEl.insertAdjacentHTML('afterbegin', iconItemHtml(entry));
+        const btn = gridEl.querySelector<HTMLButtonElement>(`[data-key="${CSS.escape(key)}"]`);
+        if (btn) bindIconItem(btn);
+      }
+    });
   }
 
   function open(mode: 'create' | 'edit', shortcut?: Shortcut): void {
