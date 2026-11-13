@@ -588,6 +588,19 @@ export function createShortcutsGrid(options: {
     const group = groupById(groupId);
     if (!group) return;
     sheet.style.setProperty('--group-accent', group.accentColor);
+    sheetAccents.classList.toggle('hidden', !editing);
+    if (editing) {
+      const bindSheetSwatches = (current: string) => {
+        paintAccentSwatches(sheetAccents, current, (color) => {
+          options.onSetGroupAccent(groupId, color);
+          sheet.style.setProperty('--group-accent', color);
+          bindSheetSwatches(color);
+        });
+      };
+      bindSheetSwatches(group.accentColor);
+    } else {
+      sheetAccents.innerHTML = '';
+    }
     if (!inlineRenaming) {
       sheetTitle.textContent = group.title;
     }
