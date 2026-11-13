@@ -200,6 +200,11 @@ export function createShortcutsGrid(options: {
 
   window.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
+    if (inlineRenaming) {
+      e.preventDefault();
+      cancelInlineRename();
+      return;
+    }
     if (nameModal.classList.contains('open')) {
       e.preventDefault();
       closeNameModal();
