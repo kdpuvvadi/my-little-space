@@ -88,7 +88,13 @@ export function createShortcutsGrid(options: {
           </button>
         </div>
       </div>
-      <div class="group-sheet-accents group-accent-swatches hidden" id="group-sheet-accents" role="listbox" aria-label="Group accent"></div>
+      <div class="group-sheet-accents hidden" id="group-sheet-accents">
+        <label class="group-accent-picker-label" for="group-sheet-color">Accent</label>
+        <div class="group-accent-picker">
+          <input type="color" id="group-sheet-color" value="#536a49" />
+          <span class="group-accent-hex" id="group-sheet-color-hex">#536a49</span>
+        </div>
+      </div>
       <div class="group-sheet-grid"></div>
       <p class="group-sheet-empty hidden">No shortcuts in this group yet. Drag icons onto it while editing.</p>
     </div>
@@ -105,8 +111,11 @@ export function createShortcutsGrid(options: {
         <input type="text" id="group-name-input" maxlength="48" autocomplete="off" />
       </div>
       <div class="field">
-        <span class="field-label-text">Accent</span>
-        <div class="group-accent-swatches" id="group-name-accents" role="listbox" aria-label="Group accent"></div>
+        <label class="group-accent-picker-label" for="group-name-color">Accent</label>
+        <div class="group-accent-picker">
+          <input type="color" id="group-name-color" value="#536a49" />
+          <span class="group-accent-hex" id="group-name-color-hex">#536a49</span>
+        </div>
       </div>
       <p class="panel-error" id="group-name-error"></p>
       <div class="modal-actions">
