@@ -367,11 +367,17 @@ async function main(): Promise<void> {
     },
     onSetGroupAccent: (groupId, accentColor) => {
       const d = activeDraft();
-      setDraft({
-        ...d,
-        groups: d.groups.map((g) =>
-          g.id === groupId ? { ...g, accentColor } : g,
-        ),
+      const groups = d.groups.map((g) =>
+        g.id === groupId ? { ...g, accentColor } : g,
+      );
+      if (editingShortcuts) {
+        setDraft({ ...d, groups });
+        return;
+      }
+      void updateSettings({ groups }).then((next) => {
+        settings = next;
+        paintShortcuts();
+        settingsPanel.setSettings(settings);
       });
     },
     onDeleteGroup: (groupId) => {
