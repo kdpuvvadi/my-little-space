@@ -20,7 +20,7 @@ export type ShortcutsGridApi = {
 
 export function createShortcutsGrid(options: {
   onAdd: () => void;
-  onAddGroup: () => void;
+  onAddGroup: (title: string) => void;
   onBeginEdit: () => void;
   onSaveEdit: () => void | Promise<void>;
   onCancelEdit: () => void;
@@ -55,7 +55,7 @@ export function createShortcutsGrid(options: {
     <div class="shortcuts-grid"></div>
   `;
 
-  // Mount on body so fixed positioning / transitions aren't clipped by ancestors.
+  // Mount overlays on body so fixed positioning / transitions aren't clipped.
   const overlay = document.createElement('div');
   overlay.className = 'group-overlay';
   overlay.setAttribute('aria-hidden', 'true');
@@ -64,15 +64,50 @@ export function createShortcutsGrid(options: {
     <div class="group-sheet" role="dialog" aria-modal="true" aria-labelledby="group-sheet-title" tabindex="-1">
       <div class="group-sheet-header">
         <h3 id="group-sheet-title" class="group-sheet-title"></h3>
-        <button type="button" class="icon-btn group-sheet-close" data-close="1" title="Close" aria-label="Close">
-          ${closeSvg}
-        </button>
+        <div class="group-sheet-header-actions">
+          <button type="button" class="icon-btn group-sheet-rename hidden" title="Rename group" aria-label="Rename group">✎</button>
+          <button type="button" class="icon-btn group-sheet-close" data-close="1" title="Close" aria-label="Close">
+            ${closeSvg}
+          </button>
+        </div>
       </div>
       <div class="group-sheet-grid"></div>
       <p class="group-sheet-empty hidden">No shortcuts in this group yet. Drag icons onto it while editing.</p>
     </div>
   `;
   document.body.append(overlay);
+
+  const nameModal = document.createElement('div');
+  nameModal.className = 'modal-root group-name-modal';
+  nameModal.innerHTML = `
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="group-name-title">
+      <h3 id="group-name-title">Group name</h3>
+      <div class="field">
+        <label for="group-name-input">Name</label>
+        <input type="text" id="group-name-input" maxlength="48" autocomplete="off" />
+      </div>
+      <p class="panel-error" id="group-name-error"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="group-name-cancel">Cancel</button>
+        <button type="button" class="btn primary" id="group-name-save">Save</button>
+      </div>
+    </div>
+  `;
+  document.body.append(nameModal);
+
+  const confirmModal = document.createElement('div');
+  confirmModal.className = 'modal-root group-confirm-modal';
+  confirmModal.innerHTML = `
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="group-confirm-title">
+      <h3 id="group-confirm-title">Delete group?</h3>
+      <p class="panel-note" id="group-confirm-body"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="group-confirm-cancel">Cancel</button>
+        <button type="button" class="btn danger-btn" id="group-confirm-ok">Delete</button>
+      </div>
+    </div>
+  `;
+  document.body.append(confirmModal);
 
   const titleEl = root.querySelector('.shortcuts-title') as HTMLHeadingElement;
   const primaryBtn = root.querySelector('.primary-btn') as HTMLButtonElement;
@@ -83,6 +118,15 @@ export function createShortcutsGrid(options: {
   const sheetTitle = overlay.querySelector('#group-sheet-title') as HTMLElement;
   const sheetGrid = overlay.querySelector('.group-sheet-grid') as HTMLElement;
   const sheetEmpty = overlay.querySelector('.group-sheet-empty') as HTMLElement;
+  const sheetRenameBtn = overlay.querySelector('.group-sheet-rename') as HTMLButtonElement;
+  const nameTitleEl = nameModal.querySelector('#group-name-title') as HTMLElement;
+  const nameInput = nameModal.querySelector('#group-name-input') as HTMLInputElement;
+  const nameError = nameModal.querySelector('#group-name-error') as HTMLElement;
+  const confirmTitleEl = confirmModal.querySelector('#group-confirm-title') as HTMLElement;
+  const confirmBodyEl = confirmModal.querySelector('#group-confirm-body') as HTMLElement;
+
+  let nameMode: { type: 'create' } | { type: 'rename'; groupId: string } | null = null;
+  let confirmGroupId: string | null = null;
 
   primaryBtn.addEventListener('click', () => {
     if (editing) void options.onSaveEdit();
@@ -98,12 +142,102 @@ export function createShortcutsGrid(options: {
     el.addEventListener('click', () => closeGroupSheet());
   });
 
+  sheetRenameBtn.addEventListener('click', () => {
+    if (!openGroupId) return;
+    const group = groupById(openGroupId);
+    if (!group) return;
+    openNameModal({ type: 'rename', groupId: group.id }, group.title);
+  });
+
+  nameModal.querySelector('#group-name-cancel')?.addEventListener('click', () => closeNameModal());
+  nameModal.addEventListener('click', (e) => {
+    if (e.target === nameModal) closeNameModal();
+  });
+  nameModal.querySelector('#group-name-save')?.addEventListener('click', () => submitNameModal());
+  nameInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      submitNameModal();
+    }
+  });
+
+  confirmModal.querySelector('#group-confirm-cancel')?.addEventListener('click', () => closeConfirmModal());
+  confirmModal.addEventListener('click', (e) => {
+    if (e.target === confirmModal) closeConfirmModal();
+  });
+  confirmModal.querySelector('#group-confirm-ok')?.addEventListener('click', () => {
+    if (!confirmGroupId) return;
+    const id = confirmGroupId;
+    closeConfirmModal();
+    if (openGroupId === id) closeGroupSheet(true);
+    options.onDeleteGroup(id);
+  });
+
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && openGroupId) {
+    if (e.key !== 'Escape') return;
+    if (nameModal.classList.contains('open')) {
+      e.preventDefault();
+      closeNameModal();
+      return;
+    }
+    if (confirmModal.classList.contains('open')) {
+      e.preventDefault();
+      closeConfirmModal();
+      return;
+    }
+    if (openGroupId) {
       e.preventDefault();
       closeGroupSheet();
     }
   });
+
+  function openNameModal(
+    mode: { type: 'create' } | { type: 'rename'; groupId: string },
+    initial: string,
+  ): void {
+    nameMode = mode;
+    nameTitleEl.textContent = mode.type === 'create' ? 'New group' : 'Rename group';
+    nameInput.value = initial;
+    nameError.textContent = '';
+    nameModal.classList.add('open');
+    nameInput.focus();
+    nameInput.select();
+  }
+
+  function closeNameModal(): void {
+    nameModal.classList.remove('open');
+    nameMode = null;
+    nameError.textContent = '';
+  }
+
+  function submitNameModal(): void {
+    if (!nameMode) return;
+    const trimmed = nameInput.value.trim();
+    if (!trimmed) {
+      nameError.textContent = 'Name is required.';
+      nameInput.focus();
+      return;
+    }
+    if (nameMode.type === 'create') {
+      options.onAddGroup(trimmed);
+    } else {
+      options.onRenameGroup(nameMode.groupId, trimmed);
+      if (openGroupId === nameMode.groupId) sheetTitle.textContent = trimmed;
+    }
+    closeNameModal();
+  }
+
+  function openConfirmDelete(group: ShortcutGroup): void {
+    confirmGroupId = group.id;
+    confirmTitleEl.textContent = 'Delete group?';
+    confirmBodyEl.textContent = `Delete “${group.title}”? Shortcuts return to the home grid.`;
+    confirmModal.classList.add('open');
+  }
+
+  function closeConfirmModal(): void {
+    confirmModal.classList.remove('open');
+    confirmGroupId = null;
+  }
 
   function shortcutById(id: string): Shortcut | undefined {
     return settings?.shortcuts.find((s) => s.id === id);
@@ -256,7 +390,9 @@ export function createShortcutsGrid(options: {
     wireIconFallbacks(grid);
 
     grid.querySelector('.add-shortcut')?.addEventListener('click', () => options.onAdd());
-    grid.querySelector('.add-group')?.addEventListener('click', () => options.onAddGroup());
+    grid.querySelector('.add-group')?.addEventListener('click', () => {
+      openNameModal({ type: 'create' }, 'New group');
+    });
 
     grid.querySelectorAll<HTMLElement>('.shortcut-item[data-id]').forEach((item) => {
       const id = item.dataset.id!;
@@ -269,29 +405,17 @@ export function createShortcutsGrid(options: {
         item.querySelector('[data-action="rename-group"]')?.addEventListener('click', (e) => {
           e.preventDefault();
           e.stopPropagation();
-          const next = window.prompt('Group name', group.title);
-          if (next === null) return;
-          const trimmed = next.trim();
-          if (!trimmed || trimmed === group.title) return;
-          options.onRenameGroup(id, trimmed);
+          openNameModal({ type: 'rename', groupId: id }, group.title);
         });
         item.querySelector('[data-action="delete-group"]')?.addEventListener('click', (e) => {
           e.preventDefault();
           e.stopPropagation();
-          if (!window.confirm(`Delete group “${group.title}”? Shortcuts return to the home grid.`)) {
-            return;
-          }
-          if (openGroupId === id) closeGroupSheet(true);
-          options.onDeleteGroup(id);
+          openConfirmDelete(group);
         });
 
         const tile = item.querySelector('.group-tile');
         tile?.addEventListener('click', (e) => {
           e.preventDefault();
-          if (editing) {
-            openGroupSheet(id);
-            return;
-          }
           openGroupSheet(id);
         });
 
@@ -322,8 +446,10 @@ export function createShortcutsGrid(options: {
     });
 
     if (openGroupId) {
-      if (groupById(openGroupId)) fillGroupSheet(openGroupId);
-      else closeGroupSheet(true);
+      if (groupById(openGroupId)) {
+        fillGroupSheet(openGroupId);
+        sheetRenameBtn.classList.toggle('hidden', !editing);
+      } else closeGroupSheet(true);
     }
   }
 
@@ -385,6 +511,7 @@ export function createShortcutsGrid(options: {
     }
     openGroupId = groupId;
     fillGroupSheet(groupId);
+    sheetRenameBtn.classList.toggle('hidden', !editing);
     overlay.classList.add('is-active');
     overlay.setAttribute('aria-hidden', 'false');
 
