@@ -81,6 +81,7 @@ export function createShortcutsGrid(options: {
           </button>
         </div>
       </div>
+      <div class="group-sheet-accents group-accent-swatches hidden" id="group-sheet-accents" role="listbox" aria-label="Group accent"></div>
       <div class="group-sheet-grid"></div>
       <p class="group-sheet-empty hidden">No shortcuts in this group yet. Drag icons onto it while editing.</p>
     </div>
@@ -95,6 +96,10 @@ export function createShortcutsGrid(options: {
       <div class="field">
         <label for="group-name-input">Name</label>
         <input type="text" id="group-name-input" maxlength="48" autocomplete="off" />
+      </div>
+      <div class="field">
+        <span class="field-label-text">Accent</span>
+        <div class="group-accent-swatches" id="group-name-accents" role="listbox" aria-label="Group accent"></div>
       </div>
       <p class="panel-error" id="group-name-error"></p>
       <div class="modal-actions">
