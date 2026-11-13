@@ -529,7 +529,9 @@ export function createShortcutsGrid(options: {
     if (!settings) return;
     const group = groupById(groupId);
     if (!group) return;
-    sheetTitle.textContent = group.title;
+    if (!inlineRenaming) {
+      sheetTitle.textContent = group.title;
+    }
     const kids = shortcutsInGroup(group, settings.shortcuts);
     sheetEmpty.classList.toggle('hidden', kids.length > 0);
     sheetGrid.innerHTML = kids
