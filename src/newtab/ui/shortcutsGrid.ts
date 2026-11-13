@@ -160,6 +160,10 @@ export function createShortcutsGrid(options: {
     beginInlineRename();
   });
 
+  sheetTitle.addEventListener('dblclick', () => {
+    if (editing) beginInlineRename();
+  });
+
   sheetTitleInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
