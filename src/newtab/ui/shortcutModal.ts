@@ -1,11 +1,18 @@
+import { catalogIconUrl, searchIconCatalog } from '../../shared/iconCatalog';
 import {
   guessPageMeta,
   newShortcut,
   normalizePageUrl,
 } from '../../shared/shortcuts';
+import {
+  hostnameOf,
+  isPrivateOrLocalHost,
+  resolveShortcutIconUrl,
+} from '../../shared/siteIcons';
 import { fetchSiteMeta } from '../../shared/siteMetaClient';
 import { resolveShortcutTitle } from '../../shared/siteTitles';
 import type { Shortcut } from '../../shared/types';
+import { pencilSvg } from './icons';
 
 export type ShortcutModalApi = {
   openCreate: () => void;
@@ -19,7 +26,7 @@ export function createShortcutModal(options: {
   const root = document.createElement('div');
   root.className = 'modal-root';
   root.innerHTML = `
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="shortcut-modal-title">
+    <div class="modal shortcut-modal" role="dialog" aria-modal="true" aria-labelledby="shortcut-modal-title">
       <h3 id="shortcut-modal-title">Add shortcut</h3>
       <div class="field">
         <label for="sc-url">URL</label>
@@ -30,8 +37,31 @@ export function createShortcutModal(options: {
         <input type="text" id="sc-title" placeholder="Filled from the URL / page title" />
       </div>
       <div class="field">
-        <label for="sc-icon">Icon URL</label>
-        <input type="url" id="sc-icon" placeholder="Auto (or paste a custom URL)" />
+        <span class="field-label-text">Icon</span>
+        <div class="icon-picker-row">
+          <div class="icon-preview" id="sc-icon-preview" aria-hidden="true">
+            <span class="icon-preview-letter" id="sc-icon-letter">?</span>
+            <img id="sc-icon-img" alt="" decoding="async" referrerpolicy="no-referrer" hidden />
+          </div>
+          <div class="icon-picker-meta">
+            <span class="icon-picker-caption" id="sc-icon-caption">Auto</span>
+            <button type="button" class="icon-btn" id="sc-icon-edit" title="Choose icon">
+              ${pencilSvg}
+            </button>
+          </div>
+        </div>
+        <div class="icon-picker-panel hidden" id="sc-icon-panel">
+          <input type="search" id="sc-icon-search" placeholder="Search Simple Icons &amp; Dashboard Icons…" autocomplete="off" />
+          <div class="icon-picker-grid" id="sc-icon-grid" role="listbox" aria-label="Icon results"></div>
+          <div class="icon-picker-footer">
+            <button type="button" class="btn" id="sc-icon-auto">Use auto</button>
+            <button type="button" class="btn" id="sc-icon-url-toggle">Paste URL</button>
+          </div>
+          <div class="field hidden" id="sc-icon-url-field">
+            <label for="sc-icon">Custom icon URL</label>
+            <input type="url" id="sc-icon" placeholder="https://…" />
+          </div>
+        </div>
       </div>
       <p class="panel-note" id="sc-status"></p>
       <p class="panel-error" id="sc-error"></p>
@@ -53,17 +83,137 @@ export function createShortcutModal(options: {
   const statusEl = root.querySelector('#sc-status') as HTMLElement;
   const errorEl = root.querySelector('#sc-error') as HTMLElement;
   const fetchBtn = root.querySelector('#sc-fetch') as HTMLButtonElement;
+  const previewEl = root.querySelector('#sc-icon-preview') as HTMLElement;
+  const letterEl = root.querySelector('#sc-icon-letter') as HTMLElement;
+  const imgEl = root.querySelector('#sc-icon-img') as HTMLImageElement;
+  const captionEl = root.querySelector('#sc-icon-caption') as HTMLElement;
+  const editBtn = root.querySelector('#sc-icon-edit') as HTMLButtonElement;
+  const panelEl = root.querySelector('#sc-icon-panel') as HTMLElement;
+  const searchInput = root.querySelector('#sc-icon-search') as HTMLInputElement;
+  const gridEl = root.querySelector('#sc-icon-grid') as HTMLElement;
+  const autoBtn = root.querySelector('#sc-icon-auto') as HTMLButtonElement;
+  const urlToggleBtn = root.querySelector('#sc-icon-url-toggle') as HTMLButtonElement;
+  const urlField = root.querySelector('#sc-icon-url-field') as HTMLElement;
 
   let editing: Shortcut | null = null;
   /** Last helper/local meta applied in this modal session (for iconCustom detection). */
   let lastFetchedIcon = '';
   let lastMetaFetchedAt = 0;
+  /** User explicitly chose an icon (catalog or paste) this session. */
+  let iconPicked = false;
+  let pickerOpen = false;
+  let searchTimer = 0;
 
   function close(): void {
     root.classList.remove('open');
     editing = null;
     lastFetchedIcon = '';
     lastMetaFetchedAt = 0;
+    iconPicked = false;
+    setPickerOpen(false);
+  }
+
+  function previewLetter(): string {
+    const title = titleInput.value.trim() || resolveShortcutTitle(urlInput.value, '');
+    return (title.slice(0, 1) || '?').toUpperCase();
+  }
+
+  function syncPreview(): void {
+    const url = iconInput.value.trim();
+    letterEl.textContent = previewLetter();
+    if (!url) {
+      imgEl.hidden = true;
+      imgEl.removeAttribute('src');
+      previewEl.classList.remove('has-image');
+      captionEl.textContent = 'Auto (letter until an icon loads)';
+      return;
+    }
+    imgEl.hidden = false;
+    imgEl.onload = () => {
+      imgEl.classList.add('is-ready');
+      previewEl.classList.add('has-image');
+    };
+    imgEl.onerror = () => {
+      imgEl.classList.remove('is-ready');
+      previewEl.classList.remove('has-image');
+      imgEl.hidden = true;
+    };
+    imgEl.classList.remove('is-ready');
+    previewEl.classList.remove('has-image');
+    if (imgEl.src !== url) imgEl.src = url;
+
+    if (iconPicked || editing?.iconCustom) {
+      const fromCatalog = labelForIconUrl(url);
+      captionEl.textContent = fromCatalog ?? 'Custom';
+    } else {
+      captionEl.textContent = 'Auto';
+    }
+  }
+
+  function labelForIconUrl(url: string): string | undefined {
+    const dash = /dashboard-icons\/(?:png|svg)\/([^/.]+)/i.exec(url);
+    if (dash) return dash[1].replace(/-/g, ' ');
+    const simple = /cdn\.simpleicons\.org\/([^/?#]+)/i.exec(url);
+    if (simple) return decodeURIComponent(simple[1]);
+    return undefined;
+  }
+
+  function setIconUrl(url: string, picked: boolean): void {
+    iconInput.value = url;
+    iconPicked = picked;
+    syncPreview();
+  }
+
+  function setPickerOpen(open: boolean): void {
+    pickerOpen = open;
+    panelEl.classList.toggle('hidden', !open);
+    editBtn.setAttribute('aria-expanded', String(open));
+    if (open) {
+      if (!searchInput.value.trim()) {
+        const hint =
+          titleInput.value.trim().split(/\s+/)[0] ||
+          hostnameOf(normalizePageUrl(urlInput.value)).split('.')[0] ||
+          '';
+        if (hint && hint.length >= 3) searchInput.value = hint;
+      }
+      renderIconGrid(searchInput.value);
+      searchInput.focus();
+      searchInput.select();
+    }
+  }
+
+  function renderIconGrid(query: string): void {
+    const results = searchIconCatalog(query, 48);
+    gridEl.innerHTML = results
+      .map((entry) => {
+        const src = catalogIconUrl(entry);
+        const pack = entry.source === 'simple' ? 'Simple' : 'Dashboard';
+        return `
+        <button type="button" class="icon-picker-item" role="option"
+          data-url="${escapeAttr(src)}"
+          data-label="${escapeAttr(entry.label)}"
+          title="${escapeAttr(`${entry.label} (${pack})`)}">
+          <img src="${escapeAttr(src)}" alt="" decoding="async" referrerpolicy="no-referrer" loading="lazy" />
+          <span>${escapeAttr(entry.label)}</span>
+        </button>`;
+      })
+      .join('');
+
+    for (const btn of gridEl.querySelectorAll<HTMLButtonElement>('.icon-picker-item')) {
+      const img = btn.querySelector('img');
+      if (img) {
+        img.addEventListener('error', () => {
+          btn.classList.add('is-broken');
+        });
+      }
+      btn.addEventListener('click', () => {
+        const u = btn.dataset.url ?? '';
+        if (!u || btn.classList.contains('is-broken')) return;
+        setIconUrl(u, true);
+        setPickerOpen(false);
+        statusEl.textContent = `Icon set to ${btn.dataset.label ?? 'selection'}.`;
+      });
+    }
   }
 
   function open(mode: 'create' | 'edit', shortcut?: Shortcut): void {
@@ -73,13 +223,21 @@ export function createShortcutModal(options: {
     titleInput.value = shortcut
       ? resolveShortcutTitle(shortcut.url, shortcut.title)
       : '';
-    iconInput.value = shortcut?.iconUrl ?? '';
+    const stored = shortcut?.iconUrl ?? '';
+    const display =
+      stored.trim() ||
+      (shortcut ? resolveShortcutIconUrl(shortcut.url, stored) : '');
+    iconInput.value = display;
     lastFetchedIcon = shortcut && !shortcut.iconCustom ? shortcut.iconUrl : '';
     lastMetaFetchedAt = shortcut?.metaFetchedAt ?? 0;
+    iconPicked = shortcut?.iconCustom === true;
     statusEl.textContent = '';
     errorEl.textContent = '';
-    // Bulk refresh lives next to Done; Fetch only when adding.
+    urlField.classList.add('hidden');
+    searchInput.value = '';
     fetchBtn.classList.toggle('hidden', mode === 'edit');
+    setPickerOpen(false);
+    syncPreview();
     root.classList.add('open');
     urlInput.focus();
   }
@@ -90,9 +248,17 @@ export function createShortcutModal(options: {
     urlInput.value = url;
     const guess = guessPageMeta(url);
     if (overwrite || !titleInput.value.trim()) titleInput.value = guess.title;
-    if (overwrite || !iconInput.value.trim()) {
-      iconInput.value = guess.iconUrl;
+    if (!iconPicked && (overwrite || !iconInput.value.trim())) {
+      setIconUrl(guess.iconUrl, false);
       lastFetchedIcon = guess.iconUrl;
+    } else {
+      syncPreview();
+    }
+
+    const host = hostnameOf(url);
+    if (host && isPrivateOrLocalHost(host) && !iconPicked) {
+      statusEl.textContent =
+        'Local/internal URL — public favicons won’t work. Pick an icon with the pencil.';
     }
   }
 
@@ -105,12 +271,22 @@ export function createShortcutModal(options: {
     }
     urlInput.value = url;
 
+    const host = hostnameOf(url);
+    if (host && isPrivateOrLocalHost(host)) {
+      statusEl.textContent =
+        'Local/internal URL — helper can’t reach it. Set a name and pick an icon.';
+      applyGuess(false);
+      return true;
+    }
+
     statusEl.textContent = 'Fetching…';
     const meta = await fetchSiteMeta(url, options.getMetaServiceUrl());
     titleInput.value = meta.title;
-    if (!editing?.iconCustom) {
-      iconInput.value = meta.icon;
+    if (!iconPicked && !editing?.iconCustom) {
+      setIconUrl(meta.icon, false);
       lastFetchedIcon = meta.icon;
+    } else {
+      syncPreview();
     }
     lastMetaFetchedAt = Date.now();
     statusEl.textContent =
@@ -128,6 +304,41 @@ export function createShortcutModal(options: {
     if (e.target === root) close();
   });
 
+  editBtn.addEventListener('click', () => {
+    setPickerOpen(!pickerOpen);
+  });
+
+  searchInput.addEventListener('input', () => {
+    window.clearTimeout(searchTimer);
+    searchTimer = window.setTimeout(() => {
+      renderIconGrid(searchInput.value);
+    }, 120);
+  });
+
+  autoBtn.addEventListener('click', () => {
+    const url = normalizePageUrl(urlInput.value);
+    const auto = url ? guessPageMeta(url).iconUrl : '';
+    setIconUrl(auto, false);
+    lastFetchedIcon = auto;
+    iconPicked = false;
+    setPickerOpen(false);
+    statusEl.textContent = 'Using auto icon.';
+  });
+
+  urlToggleBtn.addEventListener('click', () => {
+    urlField.classList.toggle('hidden');
+    if (!urlField.classList.contains('hidden')) iconInput.focus();
+  });
+
+  iconInput.addEventListener('input', () => {
+    iconPicked = Boolean(iconInput.value.trim());
+    syncPreview();
+  });
+
+  titleInput.addEventListener('input', () => {
+    letterEl.textContent = previewLetter();
+  });
+
   root.querySelector('#sc-save')?.addEventListener('click', async () => {
     errorEl.textContent = '';
     const url = normalizePageUrl(urlInput.value);
@@ -137,18 +348,22 @@ export function createShortcutModal(options: {
     }
     urlInput.value = url;
 
-    // New shortcuts always resolve meta once on save if not yet fetched this session.
-    if (!editing && !lastMetaFetchedAt) {
+    const host = hostnameOf(url);
+    const privateHost = host ? isPrivateOrLocalHost(host) : false;
+
+    // New shortcuts: fetch meta once unless local (unreachable) or already fetched.
+    if (!editing && !lastMetaFetchedAt && !privateHost) {
       await applySiteMeta();
+    } else if (!editing && privateHost && !titleInput.value.trim()) {
+      applyGuess(false);
     }
 
     const guess = guessPageMeta(url);
     const title = titleInput.value.trim() || guess.title;
     const iconUrl = iconInput.value.trim() || lastFetchedIcon || guess.iconUrl;
-    // Custom when the user diverged from the last auto-fetched icon.
-    const iconCustom = lastFetchedIcon
-      ? iconUrl !== lastFetchedIcon
-      : editing?.iconCustom === true;
+    const iconCustom =
+      iconPicked ||
+      (lastFetchedIcon ? iconUrl !== lastFetchedIcon : editing?.iconCustom === true);
 
     const metaFetchedAt = lastMetaFetchedAt || editing?.metaFetchedAt || Date.now();
 
@@ -182,4 +397,12 @@ export function createShortcutModal(options: {
     openCreate: () => open('create'),
     openEdit: (shortcut) => open('edit', shortcut),
   };
+}
+
+function escapeAttr(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
