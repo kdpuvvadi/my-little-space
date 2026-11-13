@@ -126,6 +126,9 @@ export function createShortcutsGrid(options: {
   const grid = root.querySelector('.shortcuts-grid') as HTMLDivElement;
   const sheet = overlay.querySelector('.group-sheet') as HTMLElement;
   const sheetTitle = overlay.querySelector('#group-sheet-title') as HTMLElement;
+  const sheetTitleInput = overlay.querySelector(
+    '#group-sheet-title-input',
+  ) as HTMLInputElement;
   const sheetGrid = overlay.querySelector('.group-sheet-grid') as HTMLElement;
   const sheetEmpty = overlay.querySelector('.group-sheet-empty') as HTMLElement;
   const sheetRenameBtn = overlay.querySelector('.group-sheet-rename') as HTMLButtonElement;
@@ -137,6 +140,7 @@ export function createShortcutsGrid(options: {
 
   let nameMode: { type: 'create' } | { type: 'rename'; groupId: string } | null = null;
   let confirmGroupId: string | null = null;
+  let inlineRenaming = false;
 
   primaryBtn.addEventListener('click', () => {
     if (editing) void options.onSaveEdit();
@@ -153,10 +157,7 @@ export function createShortcutsGrid(options: {
   });
 
   sheetRenameBtn.addEventListener('click', () => {
-    if (!openGroupId) return;
-    const group = groupById(openGroupId);
-    if (!group) return;
-    openNameModal({ type: 'rename', groupId: group.id }, group.title);
+    beginInlineRename();
   });
 
   nameModal.querySelector('#group-name-cancel')?.addEventListener('click', () => closeNameModal());
@@ -200,6 +201,26 @@ export function createShortcutsGrid(options: {
       closeGroupSheet();
     }
   });
+
+  function beginInlineRename(): void {
+    if (!openGroupId || inlineRenaming) return;
+    const group = groupById(openGroupId);
+    if (!group) return;
+    inlineRenaming = true;
+    sheetTitleInput.value = group.title;
+    sheetTitle.classList.add('hidden');
+    sheetTitleInput.classList.remove('hidden');
+    sheetRenameBtn.classList.add('hidden');
+    sheetTitleInput.focus();
+    sheetTitleInput.select();
+  }
+
+  function endInlineRenameUi(): void {
+    inlineRenaming = false;
+    sheetTitleInput.classList.add('hidden');
+    sheetTitle.classList.remove('hidden');
+    sheetRenameBtn.classList.toggle('hidden', !editing);
+  }
 
   function openNameModal(
     mode: { type: 'create' } | { type: 'rename'; groupId: string },
