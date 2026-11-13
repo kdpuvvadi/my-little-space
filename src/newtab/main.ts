@@ -276,10 +276,8 @@ async function main(): Promise<void> {
 
   const shortcutsGrid = createShortcutsGrid({
     onAdd: () => shortcutModal.openCreate(),
-    onAddGroup: () => {
-      const name = window.prompt('Group name', 'New group');
-      if (name === null) return;
-      const group = newGroup(name);
+    onAddGroup: (title) => {
+      const group = newGroup(title);
       const d = activeDraft();
       setDraft({
         shortcuts: d.shortcuts,
