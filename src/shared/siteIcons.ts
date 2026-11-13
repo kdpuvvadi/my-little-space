@@ -291,6 +291,60 @@ export function hostnameOf(pageUrl: string): string {
   }
 }
 
+const PRIVATE_TLDS = new Set([
+  'local',
+  'localhost',
+  'lan',
+  'home',
+  'internal',
+  'intranet',
+  'corp',
+  'private',
+  'localdomain',
+]);
+
+/**
+ * Hosts that public favicon CDNs (DDG / Google) cannot usefully resolve —
+ * localhost, RFC1918, link-local, and common internal TLDs.
+ * Public DNS that points at a LAN IP (e.g. media.example.net) is not detected here;
+ * use the icon picker for those.
+ */
+export function isPrivateOrLocalHost(hostname: string): boolean {
+  const host = hostname.replace(/^www\./i, '').toLowerCase();
+  if (!host) return false;
+  if (host === 'localhost' || host.endsWith('.localhost')) return true;
+  if (host === '::1' || host === '[::1]') return true;
+
+  const labels = host.split('.');
+  const tld = labels[labels.length - 1];
+  if (PRIVATE_TLDS.has(tld)) return true;
+  if (host.endsWith('.home.arpa')) return true;
+
+  // IPv4 literal
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+  if (m) {
+    const a = Number(m[1]);
+    const b = Number(m[2]);
+    if (a === 10) return true;
+    if (a === 127) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 169 && b === 254) return true;
+    if (a === 0) return true;
+  }
+
+  // IPv6 bare / bracketed — unique-local & link-local
+  const v6 = host.replace(/^\[|\]$/g, '');
+  if (v6.includes(':')) {
+    const lower = v6.toLowerCase();
+    if (lower === '::1') return true;
+    if (lower.startsWith('fc') || lower.startsWith('fd')) return true;
+    if (lower.startsWith('fe80:')) return true;
+  }
+
+  return false;
+}
+
 /** Google Docs/Sheets/Slides share docs.google.com — pick by path. */
 export function googleAppIconFromPath(pageUrl: string): SiteIconRef | undefined {
   try {
@@ -527,10 +581,12 @@ export function iconCandidatesFor(pageUrl: string): string[] {
       pushRef(lookupParentSiteIcon(host));
     }
 
-    const reliable: string[] = [
-      duckDuckGoIconUrl(host),
-      googleFaviconUrl(host),
-    ];
+    const privateHost = isPrivateOrLocalHost(host);
+    const reliable: string[] = [];
+    // Public favicon CDNs cannot reach LAN / internal hosts.
+    if (!privateHost) {
+      reliable.push(duckDuckGoIconUrl(host), googleFaviconUrl(host));
+    }
     try {
       reliable.push(`${new URL(pageUrl).origin}/favicon.ico`);
     } catch {
@@ -540,12 +596,18 @@ export function iconCandidatesFor(pageUrl: string): string[] {
     if (hasCurated) {
       urls.push(...reliable);
     } else {
-      // Unknown host: show a real favicon immediately; pack guesses are optional tail.
-      urls.push(...reliable);
-      pushRef(lookupParentSiteIcon(host));
+      // Unknown host: prefer real favicons when public; pack guesses for LAN.
+      if (!privateHost) {
+        urls.push(...reliable);
+        pushRef(lookupParentSiteIcon(host));
+      }
       const guesses = guessIconIds(host);
       for (const id of guesses) urls.push(dashboardIconsUrl(id));
       for (const id of guesses) urls.push(simpleIconsUrl(id));
+      if (privateHost) {
+        urls.push(...reliable);
+        pushRef(lookupParentSiteIcon(host));
+      }
     }
   } else {
     try {
