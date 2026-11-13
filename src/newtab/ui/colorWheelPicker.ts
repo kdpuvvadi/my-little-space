@@ -48,6 +48,7 @@ export function createColorWheelPicker(options: Options): ColorWheelPickerApi {
   root.className = 'cwp';
   root.innerHTML = `
     <button type="button" class="cwp-trigger ${options.triggerClass ?? ''}" title="Choose color" aria-label="Choose color" aria-haspopup="dialog" aria-expanded="false">
+      <span class="cwp-trigger-spectrum" aria-hidden="true"></span>
       <span class="cwp-trigger-fill" aria-hidden="true"></span>
     </button>
     <div class="cwp-popover" role="dialog" aria-label="Color picker" hidden>
