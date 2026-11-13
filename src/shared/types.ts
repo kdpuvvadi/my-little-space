@@ -22,6 +22,8 @@ export type ShortcutGroup = {
   title: string;
   /** Ordered shortcut ids contained in this group. */
   shortcutIds: string[];
+  /** Hex accent used for the group border / sheet chrome. */
+  accentColor: string;
 };
 
 export type Branding = {
