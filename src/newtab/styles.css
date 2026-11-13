@@ -1154,6 +1154,10 @@ a {
   flex: 1;
 }
 
+.group-name-title-row {
+  margin-bottom: 1rem;
+}
+
 .group-sheet-title-wrap {
   flex: 1 1 auto;
   min-width: 0;
@@ -1163,11 +1167,19 @@ a {
 .group-name-cwp-host {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   flex: 0 0 auto;
   line-height: 0;
+  height: 1.2em;
 }
 
-.group-name-title-row h3,
+.modal .group-name-title-row > h3 {
+  margin: 0;
+  line-height: 1.2;
+  display: flex;
+  align-items: center;
+}
+
 .group-sheet-title {
   margin: 0;
   line-height: 1.2;
