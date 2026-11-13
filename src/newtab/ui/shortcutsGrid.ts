@@ -409,8 +409,9 @@ export function createShortcutsGrid(options: {
 
   function renderGroupItem(group: ShortcutGroup): string {
     const count = shortcutsInGroup(group, settings!.shortcuts).length;
+    const accent = escapeAttr(group.accentColor);
     return `
-      <div class="shortcut-item group-item ${editing ? 'editing' : ''}" data-id="${group.id}" data-kind="group">
+      <div class="shortcut-item group-item ${editing ? 'editing' : ''}" data-id="${group.id}" data-kind="group" style="--group-accent: ${accent}">
         <button type="button" class="shortcut-tile group-tile" aria-label="${escapeAttr(group.title)} group">
           <span class="group-preview">${groupPreviewHtml(group)}</span>
         </button>
