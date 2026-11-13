@@ -983,14 +983,18 @@ a {
 
 .cwp-trigger {
   position: relative;
-  width: 20px;
-  height: 20px;
+  box-sizing: border-box;
+  width: 18px;
+  height: 18px;
+  margin: 0;
   padding: 0;
   border: none;
   border-radius: 999px;
   background: transparent;
   cursor: pointer;
   flex-shrink: 0;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .cwp-trigger-spectrum {
@@ -1140,27 +1144,35 @@ a {
   border-color: var(--accent);
 }
 
-.group-sheet-title-row,
-.group-name-title-row {
+.group-sheet-title-row {
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
   align-items: center;
   gap: 0.45rem;
   min-width: 0;
-}
-
-.group-sheet-title-row {
   flex: 1;
-}
-
-.group-name-title-row {
-  margin-bottom: 1rem;
 }
 
 .group-sheet-title-wrap {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+.modal h3.group-name-heading {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0 0 1rem;
+  font-size: 1.05rem;
+  font-weight: 650;
+  line-height: 1;
+}
+
+.group-name-heading-text {
+  line-height: 1;
 }
 
 .group-sheet-cwp-host,
@@ -1170,19 +1182,27 @@ a {
   justify-content: center;
   flex: 0 0 auto;
   line-height: 0;
-  height: 1.2em;
-}
-
-.modal .group-name-title-row > h3 {
-  margin: 0;
-  line-height: 1.2;
-  display: flex;
-  align-items: center;
+  translate: 0 0.5px;
 }
 
 .group-sheet-title {
   margin: 0;
   line-height: 1.2;
+}
+
+.group-name-cwp-host .cwp,
+.group-sheet-cwp-host .cwp {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.group-name-cwp-host .cwp-trigger,
+.group-sheet-cwp-host .cwp-trigger {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
 }
 
 .group-sheet-grid {
