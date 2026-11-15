@@ -49,23 +49,35 @@ npm run dev    # watch mode
 npm run pack   # build + zip locally (same shape as the release asset)
 ```
 
-Creating a GitHub Release (tag e.g. `v1.0.0`) runs the **Release** workflow, which builds and uploads the zip to that release.
+Creating a GitHub Release (tag e.g. `v1.0.0`) runs the **Release** workflow, which builds and uploads:
+
+- `my-little-space-<version>.zip` — Chrome / Edge (load unpacked or from the zip)
+- `my-little-space-safari-<version>.zip` — unsigned macOS Safari wrapper app (from a macOS runner)
+
 ## Safari (macOS)
 
-Safari needs Apple’s converter and an Xcode wrapper (not produced on Windows):
+### From a release (unsigned)
+
+1. Download `my-little-space-safari-<version>.zip` from the release, unzip it
+2. Move `My Little Space.app` somewhere permanent (e.g. `/Applications`) and open it once
+3. In Safari: **Settings → Developer** → enable **Allow unsigned extensions** (resets when Safari quits)
+4. **Settings → Extensions** → enable **My Little Space**
+5. Allow the extension to override the new-tab / start page as prompted
+
+### Local convert + Xcode
 
 1. Build this project (`npm run build`)
 2. On a Mac with Xcode installed:
 
 ```bash
-xcrun safari-web-extension-converter dist --app-name "My Little Space" --bundle-identifier com.example.mylittlespace
+xcrun safari-web-extension-converter dist --app-name "My Little Space" --bundle-identifier com.example.mylittlespace --macos-only --no-prompt --no-open
 ```
 
 3. Open the generated Xcode project, sign with your team, and run
 4. In Safari: **Settings → Extensions** → enable **My Little Space**
 5. Allow the extension to override the new-tab / start page as prompted
 
-Developer signing / App Store distribution are separate Safari steps.
+Developer ID / App Store signing is separate; the release Safari zip is unsigned for local testing.
 
 ## YAML backup
 
