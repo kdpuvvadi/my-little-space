@@ -10,7 +10,7 @@ const root = join(__dirname, '..');
 const dist = join(root, 'dist');
 const require = createRequire(import.meta.url);
 const version = require(join(root, 'package.json')).version;
-const zipName = `my-little-space-${version}.zip`;
+const zipName = `my-little-space-chrome-${version}.zip`;
 const zipPath = join(root, zipName);
 
 if (!existsSync(dist)) {

@@ -28,7 +28,7 @@ Output is in `dist/`.
 
 1. Download the latest zip from  
    **[Latest release](https://github.com/kdpuvvadi/my-little-space/releases/latest)**  
-   (`my-little-space-<version>.zip`)
+   (`my-little-space-chrome-<version>.zip`)
 2. Unzip it somewhere permanent (Chrome loads from that folder)
 3. Open `chrome://extensions` (or `edge://extensions`)
 4. Enable **Developer mode**
@@ -51,7 +51,7 @@ npm run pack   # build + zip locally (same shape as the release asset)
 
 Creating a GitHub Release (tag e.g. `v1.0.0`) runs the **Release** workflow, which builds and uploads:
 
-- `my-little-space-<version>.zip` — Chrome / Edge (load unpacked or from the zip)
+- `my-little-space-chrome-<version>.zip` — Chrome / Edge (load unpacked or from the zip)
 - `my-little-space-safari-<version>.zip` — unsigned macOS Safari wrapper app (from a macOS runner)
 
 ## Safari (macOS)
