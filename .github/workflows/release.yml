@@ -9,168 +9,19 @@ permissions:
   packages: write
 
 jobs:
-  build-and-pack:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
+  dist:
+    uses: ./.github/workflows/build-dist.yml
 
-      - name: Setup Node
-        uses: actions/setup-node@v7
-        with:
-          node-version: '22'
-          cache: npm
+  chrome:
+    needs: dist
+    uses: ./.github/workflows/release-chrome.yml
+    secrets: inherit
 
-      - name: Install
-        run: npm ci
+  safari:
+    needs: dist
+    uses: ./.github/workflows/release-safari.yml
+    secrets: inherit
 
-      - name: Build
-        env:
-          # Repo variable META_SERVICE_URL → baked in as the Customize Advanced default.
-          # Leave unset for local-only resolve until the user sets a URL.
-          VITE_META_SERVICE_URL: ${{ vars.META_SERVICE_URL }}
-        run: npm run build
-
-      - name: Pack zip
-        run: |
-          TAG="${GITHUB_REF_NAME}"
-          SAFE_TAG="${TAG#v}"
-          ZIP_NAME="my-little-space-chrome-${SAFE_TAG}.zip"
-          (
-            cd dist
-            zip -r "../${ZIP_NAME}" .
-          )
-          echo "ZIP_NAME=${ZIP_NAME}" >> "$GITHUB_ENV"
-          ls -la "${ZIP_NAME}"
-
-      - name: Upload to release
-        uses: softprops/action-gh-release@v3
-        with:
-          files: my-little-space-chrome-*.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  build-safari:
-    runs-on: macos-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Setup Node
-        uses: actions/setup-node@v7
-        with:
-          node-version: '22'
-          cache: npm
-
-      - name: Install
-        run: npm ci
-
-      - name: Build
-        env:
-          VITE_META_SERVICE_URL: ${{ vars.META_SERVICE_URL }}
-        run: npm run build
-
-      - name: Convert to Safari app
-        run: |
-          xcrun safari-web-extension-converter dist \
-            --project-location . \
-            --app-name "My Little Space" \
-            --bundle-identifier com.example.mylittlespace \
-            --macos-only \
-            --copy-resources \
-            --no-prompt \
-            --no-open \
-            --force
-
-      - name: Build unsigned macOS app
-        run: |
-          set -euo pipefail
-          PROJECT=$(find "My Little Space" -maxdepth 1 -name "*.xcodeproj" | head -1)
-          echo "Project: ${PROJECT}"
-          xcodebuild -list -project "${PROJECT}"
-          SCHEME=$(xcodebuild -list -project "${PROJECT}" -json | python3 -c '
-          import json, sys
-          data = json.load(sys.stdin)
-          schemes = data.get("project", {}).get("schemes", [])
-          for name in schemes:
-              if "macOS" in name or name == "My Little Space":
-                  print(name)
-                  break
-          else:
-              print(schemes[0] if schemes else "")
-          ')
-          echo "Scheme: ${SCHEME}"
-          xcodebuild \
-            -project "${PROJECT}" \
-            -scheme "${SCHEME}" \
-            -configuration Release \
-            -derivedDataPath build/safari \
-            CODE_SIGN_IDENTITY=- \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            build
-
-      - name: Pack Safari zip
-        run: |
-          set -euo pipefail
-          TAG="${GITHUB_REF_NAME}"
-          SAFE_TAG="${TAG#v}"
-          ZIP_NAME="my-little-space-safari-${SAFE_TAG}.zip"
-          APP=$(find build/safari/Build/Products/Release -maxdepth 1 -type d -name "*.app" | head -1)
-          if [ -z "${APP}" ]; then
-            echo "::error::No .app found under build/safari/Build/Products/Release"
-            find build/safari -name "*.app" -type d || true
-            exit 1
-          fi
-          echo "App: ${APP}"
-          ditto -c -k --sequesterRsrc --keepParent "${APP}" "${ZIP_NAME}"
-          echo "ZIP_NAME=${ZIP_NAME}" >> "$GITHUB_ENV"
-          ls -la "${ZIP_NAME}"
-
-      - name: Upload Safari zip to release
-        uses: softprops/action-gh-release@v3
-        with:
-          files: my-little-space-safari-*.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  build-site-meta-image:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Image metadata
-        id: meta
-        run: |
-          TAG="${GITHUB_REF_NAME}"
-          SAFE_TAG="${TAG#v}"
-          IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER}/mls-site-meta"
-          # lowercase for GHCR
-          IMAGE="$(echo "$IMAGE" | tr '[:upper:]' '[:lower:]')"
-          echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
-          echo "tag=${SAFE_TAG}" >> "$GITHUB_OUTPUT"
-          echo "full_tag=${TAG}" >> "$GITHUB_OUTPUT"
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: ./service
-          file: ./service/Dockerfile
-          push: true
-          tags: |
-            ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}
-            ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.full_tag }}
-            ${{ steps.meta.outputs.image }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+  site-meta:
+    uses: ./.github/workflows/release-site-meta.yml
+    secrets: inherit

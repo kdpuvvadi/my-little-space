@@ -49,7 +49,13 @@ npm run dev    # watch mode
 npm run pack   # build + zip locally (same shape as the release asset)
 ```
 
-Creating a GitHub Release (tag e.g. `v1.0.0`) runs the **Release** workflow, which builds and uploads:
+Creating a GitHub Release (tag e.g. `v1.0.0`) runs the **Release** workflow, which:
+
+1. Builds shared `dist/` once (`build-dist`)
+2. Packs Chrome / Edge and Safari in parallel from that artifact
+3. Pushes the site-meta Docker image to GHCR
+
+Release assets:
 
 - `my-little-space-chrome-<version>.zip` — Chrome / Edge (load unpacked or from the zip)
 - `my-little-space-safari-<version>.zip` — unsigned macOS Safari wrapper app (from a macOS runner)
@@ -70,7 +76,7 @@ Creating a GitHub Release (tag e.g. `v1.0.0`) runs the **Release** workflow, whi
 2. On a Mac with Xcode installed:
 
 ```bash
-xcrun safari-web-extension-converter dist --app-name "My Little Space" --bundle-identifier com.example.mylittlespace --macos-only --no-prompt --no-open
+xcrun safari-web-extension-converter dist --app-name "My Little Space" --bundle-identifier com.kdpuvvadi.mls --macos-only --no-prompt --no-open
 ```
 
 3. Open the generated Xcode project, sign with your team, and run

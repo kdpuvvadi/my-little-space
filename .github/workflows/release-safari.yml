@@ -1,0 +1,155 @@
+name: Release Safari
+
+on:
+  workflow_call:
+
+permissions:
+  contents: write
+
+jobs:
+  pack:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Download dist
+        uses: actions/download-artifact@v4
+        with:
+          name: extension-dist
+          path: dist
+
+      - name: Convert to Safari app
+        env:
+          SAFARI_BUNDLE_ID: com.kdpuvvadi.mls
+        run: |
+          set -euo pipefail
+          xcrun safari-web-extension-converter dist \
+            --project-location . \
+            --app-name "My Little Space" \
+            --bundle-identifier "${SAFARI_BUNDLE_ID}" \
+            --macos-only \
+            --copy-resources \
+            --no-prompt \
+            --no-open \
+            --force
+
+          # --macos-only rewrites the parent app id from the display name
+          # (e.g. com.kdpuvvadi.My-Little-Space) while the extension keeps
+          # ${SAFARI_BUNDLE_ID}.Extension. Align them before xcodebuild.
+          python3 - <<'PY'
+          import os, pathlib, re
+
+          root = pathlib.Path("My Little Space")
+          wanted = os.environ["SAFARI_BUNDLE_ID"]
+          vendor = ".".join(wanted.split(".")[:2])
+          # OpenStep pbxproj: PRODUCT_BUNDLE_IDENTIFIER = id;
+          # JSON xcproj:     "PRODUCT_BUNDLE_IDENTIFIER": "id",
+          product_res = [
+              re.compile(
+                  r'(PRODUCT_BUNDLE_IDENTIFIER\s*=\s*)("?)([^";]+)\2(\s*;)'
+              ),
+              re.compile(
+                  r'("PRODUCT_BUNDLE_IDENTIFIER"\s*:\s*")([^"]+)(")'
+              ),
+          ]
+          changed = []
+          found_ids = []
+
+          def normalize(bid: str) -> str:
+              if bid == wanted or bid.startswith(wanted + "."):
+                  return bid
+              if bid.endswith(".Extension"):
+                  return wanted + ".Extension"
+              return wanted
+
+          for path in root.rglob("*"):
+              if not path.is_file():
+                  continue
+              if path.suffix not in {".pbxproj", ".xcproj", ".plist", ".swift"}:
+                  continue
+              text = path.read_text(encoding="utf-8")
+              original = text
+
+              def fix_eq(m):
+                  new_id = normalize(m.group(3))
+                  found_ids.append(new_id)
+                  return f"{m.group(1)}{m.group(2)}{new_id}{m.group(2)}{m.group(4)}"
+
+              def fix_json(m):
+                  new_id = normalize(m.group(2))
+                  found_ids.append(new_id)
+                  return f"{m.group(1)}{new_id}{m.group(3)}"
+
+              text = product_res[0].sub(fix_eq, text)
+              text = product_res[1].sub(fix_json, text)
+              text = re.sub(
+                  rf'{re.escape(vendor)}\.[A-Za-z0-9_.-]*Extension',
+                  wanted + ".Extension",
+                  text,
+              )
+              if text != original:
+                  path.write_text(text, encoding="utf-8")
+                  changed.append(str(path))
+
+          print("Normalized bundle ids in:")
+          for c in changed or ["(no files needed changes)"]:
+              print(f"  {c}")
+
+          bad = [b for b in found_ids if b != wanted and not b.startswith(wanted + ".")]
+          if bad:
+              raise SystemExit("Bundle id still mismatched: " + ", ".join(sorted(set(bad))))
+          if not found_ids:
+              raise SystemExit("No PRODUCT_BUNDLE_IDENTIFIER entries found to normalize")
+          PY
+
+      - name: Build unsigned macOS app
+        run: |
+          set -euo pipefail
+          PROJECT=$(find "My Little Space" -maxdepth 1 -name "*.xcodeproj" | head -1)
+          echo "Project: ${PROJECT}"
+          xcodebuild -list -project "${PROJECT}"
+          SCHEME=$(xcodebuild -list -project "${PROJECT}" -json | python3 -c '
+          import json, sys
+          data = json.load(sys.stdin)
+          schemes = data.get("project", {}).get("schemes", [])
+          for name in schemes:
+              if "macOS" in name or name == "My Little Space":
+                  print(name)
+                  break
+          else:
+              print(schemes[0] if schemes else "")
+          ')
+          echo "Scheme: ${SCHEME}"
+          xcodebuild \
+            -project "${PROJECT}" \
+            -scheme "${SCHEME}" \
+            -configuration Release \
+            -derivedDataPath build/safari \
+            CODE_SIGN_IDENTITY=- \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build
+
+      - name: Pack Safari zip
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          SAFE_TAG="${TAG#v}"
+          ZIP_NAME="my-little-space-safari-${SAFE_TAG}.zip"
+          APP=$(find build/safari/Build/Products/Release -maxdepth 1 -type d -name "*.app" | head -1)
+          if [ -z "${APP}" ]; then
+            echo "::error::No .app found under build/safari/Build/Products/Release"
+            find build/safari -name "*.app" -type d || true
+            exit 1
+          fi
+          echo "App: ${APP}"
+          ditto -c -k --sequesterRsrc --keepParent "${APP}" "${ZIP_NAME}"
+          ls -la "${ZIP_NAME}"
+
+      - name: Upload Safari zip to release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: my-little-space-safari-*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

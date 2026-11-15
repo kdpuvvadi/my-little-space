@@ -1,0 +1,36 @@
+name: Release Chrome
+
+on:
+  workflow_call:
+
+permissions:
+  contents: write
+
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download dist
+        uses: actions/download-artifact@v4
+        with:
+          name: extension-dist
+          path: dist
+
+      - name: Pack zip
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          SAFE_TAG="${TAG#v}"
+          ZIP_NAME="my-little-space-chrome-${SAFE_TAG}.zip"
+          (
+            cd dist
+            zip -r "../${ZIP_NAME}" .
+          )
+          ls -la "${ZIP_NAME}"
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: my-little-space-chrome-*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
