@@ -3,6 +3,7 @@ import {
   nextGroupAccent,
   normalizeGroupAccentColor,
   normalizeHomeOrder,
+  orderedHomeIds,
   shortcutsInGroup,
 } from '../../shared/groups';
 import {
@@ -23,6 +24,7 @@ export type ShortcutsGridApi = {
   root: HTMLElement;
   setSettings: (settings: Settings, editing: boolean) => void;
   setUpdateBusy: (busy: boolean) => void;
+  openGroup: (groupId: string) => void;
 };
 
 export function createShortcutsGrid(options: {
@@ -40,6 +42,8 @@ export function createShortcutsGrid(options: {
   onReorderHome: (orderedIds: string[]) => void;
   onDropOnGroup: (groupId: string, shortcutId: string) => void;
   onRemoveFromGroup: (groupId: string, shortcutId: string) => void;
+  onTogglePin: (id: string) => void;
+  onToggleHide: (id: string) => void;
 }): ShortcutsGridApi {
   let settings: Settings | null = null;
   let editing = false;
@@ -442,35 +446,60 @@ export function createShortcutsGrid(options: {
     });
   }
 
+  function isPinned(id: string): boolean {
+    return Boolean(settings?.pinnedHomeIds.includes(id));
+  }
+
+  function isHidden(id: string): boolean {
+    return Boolean(settings?.hiddenHomeIds.includes(id));
+  }
+
+  function pinHideActions(id: string): string {
+    if (!editing) return '';
+    const pinned = isPinned(id);
+    const hidden = isHidden(id);
+    return `
+      <button type="button" class="icon-btn" title="${pinned ? 'Unpin' : 'Pin'}" data-action="pin" aria-label="${pinned ? 'Unpin' : 'Pin'}">${pinned ? '★' : '☆'}</button>
+      <button type="button" class="icon-btn" title="${hidden ? 'Show on home' : 'Hide from home'}" data-action="hide" aria-label="${hidden ? 'Show' : 'Hide'}">${hidden ? '◐' : '◯'}</button>`;
+  }
+
   function renderShortcutItem(sc: Shortcut): string {
     const title = resolveShortcutTitle(sc.url, sc.title);
+    const pinned = isPinned(sc.id);
+    const hidden = isHidden(sc.id);
     return `
-      <div class="shortcut-item ${editing ? 'editing' : ''}" data-id="${sc.id}" data-kind="shortcut">
+      <div class="shortcut-item ${editing ? 'editing' : ''} ${pinned ? 'is-pinned' : ''} ${hidden ? 'is-hidden' : ''}" data-id="${sc.id}" data-kind="shortcut">
         <a class="shortcut-tile" href="${escapeAttr(sc.url)}" ${editing ? 'tabindex="-1"' : ''}>
           ${shortcutTileInner(sc)}
         </a>
         <div class="shortcut-label" title="${escapeAttr(title)}">${escapeAttr(title)}</div>
         <div class="shortcut-actions">
+          ${pinHideActions(sc.id)}
           <button type="button" class="icon-btn edit" title="Edit" data-action="edit">✎</button>
           <button type="button" class="icon-btn danger" title="Delete" data-action="delete">×</button>
         </div>
+        ${pinned && !editing ? '<span class="pin-badge" title="Pinned" aria-hidden="true">★</span>' : ''}
       </div>`;
   }
 
   function renderGroupItem(group: ShortcutGroup): string {
     const count = shortcutsInGroup(group, settings!.shortcuts).length;
     const accent = escapeAttr(group.accentColor);
+    const pinned = isPinned(group.id);
+    const hidden = isHidden(group.id);
     return `
-      <div class="shortcut-item group-item ${editing ? 'editing' : ''}" data-id="${group.id}" data-kind="group" style="--group-accent: ${accent}">
+      <div class="shortcut-item group-item ${editing ? 'editing' : ''} ${pinned ? 'is-pinned' : ''} ${hidden ? 'is-hidden' : ''}" data-id="${group.id}" data-kind="group" style="--group-accent: ${accent}">
         <button type="button" class="shortcut-tile group-tile" aria-label="${escapeAttr(group.title)} group">
           <span class="group-preview">${groupPreviewHtml(group)}</span>
         </button>
         <div class="shortcut-label" title="${escapeAttr(group.title)}">${escapeAttr(group.title)}</div>
         <div class="shortcut-actions">
+          ${pinHideActions(group.id)}
           <button type="button" class="icon-btn edit" title="Rename" data-action="rename-group">✎</button>
           <button type="button" class="icon-btn danger" title="Delete group" data-action="delete-group">×</button>
         </div>
         <span class="group-count ${count ? '' : 'hidden'}">${count}</span>
+        ${pinned && !editing ? '<span class="pin-badge" title="Pinned" aria-hidden="true">★</span>' : ''}
       </div>`;
   }
 
@@ -484,7 +513,13 @@ export function createShortcutsGrid(options: {
     updateBtn.classList.toggle('hidden', !editing);
     grid.classList.toggle('is-editing', editing);
 
-    const order = normalizeHomeOrder(homeOrder, shortcuts, groups);
+    const normalized = normalizeHomeOrder(homeOrder, shortcuts, groups);
+    // Edit mode keeps storage order so drag-reorder stays stable; view mode pins first and hides.
+    const order = editing
+      ? normalized
+      : orderedHomeIds(normalized, settings.pinnedHomeIds, settings.hiddenHomeIds, {
+          includeHidden: false,
+        });
     const parts: string[] = [];
     for (const id of order) {
       const group = groups.find((g) => g.id === id);
@@ -539,6 +574,16 @@ export function createShortcutsGrid(options: {
           e.stopPropagation();
           openConfirmDelete(group);
         });
+        item.querySelector('[data-action="pin"]')?.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          options.onTogglePin(id);
+        });
+        item.querySelector('[data-action="hide"]')?.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          options.onToggleHide(id);
+        });
 
         const tile = item.querySelector('.group-tile');
         tile?.addEventListener('click', (e) => {
@@ -562,6 +607,16 @@ export function createShortcutsGrid(options: {
         e.preventDefault();
         e.stopPropagation();
         options.onDeleteShortcut(id);
+      });
+      item.querySelector('[data-action="pin"]')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        options.onTogglePin(id);
+      });
+      item.querySelector('[data-action="hide"]')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        options.onToggleHide(id);
       });
 
       if (editing) {
@@ -989,6 +1044,10 @@ export function createShortcutsGrid(options: {
     setUpdateBusy: (busy) => {
       updateBtn.disabled = busy;
       updateBtn.textContent = busy ? 'Updating…' : 'Update';
+    },
+    openGroup: (groupId) => {
+      if (!groupById(groupId)) return;
+      openGroupSheet(groupId);
     },
   };
 }

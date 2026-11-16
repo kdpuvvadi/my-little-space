@@ -84,6 +84,44 @@ export function groupedShortcutIds(groups: ShortcutGroup[]): Set<string> {
 }
 
 /** Build a valid home order: root shortcuts + groups; drop unknowns; append missing. */
+/** Normalize pin/hide id lists against current home membership. */
+export function normalizeHomeFlags(
+  ids: string[],
+  homeOrder: string[],
+): string[] {
+  const home = new Set(homeOrder);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const id of ids) {
+    if (!home.has(id) || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
+
+/**
+ * Display order for the home grid: pinned first (in pin order), then the rest.
+ * Hidden ids are omitted unless `includeHidden` is true (edit mode).
+ */
+export function orderedHomeIds(
+  homeOrder: string[],
+  pinnedIds: string[],
+  hiddenIds: string[],
+  options: { includeHidden?: boolean } = {},
+): string[] {
+  const includeHidden = options.includeHidden === true;
+  const hidden = new Set(hiddenIds);
+  const visible = includeHidden
+    ? [...homeOrder]
+    : homeOrder.filter((id) => !hidden.has(id));
+  const visibleSet = new Set(visible);
+  const pinned = pinnedIds.filter((id) => visibleSet.has(id));
+  const pinnedSet = new Set(pinned);
+  const rest = visible.filter((id) => !pinnedSet.has(id));
+  return [...pinned, ...rest];
+}
+
 export function normalizeHomeOrder(
   homeOrder: string[],
   shortcuts: Shortcut[],

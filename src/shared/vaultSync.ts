@@ -7,13 +7,33 @@ import type { Settings } from './types';
 export const VAULT_STALE_MS = 15 * 60 * 1000;
 export const VAULT_SYNC_DEBOUNCE_MS = 2000;
 
+function formatRelativeAgo(updatedAt: number, now = Date.now()): string {
+  const delta = Math.max(0, now - updatedAt);
+  const sec = Math.round(delta / 1000);
+  if (sec < 45) return 'just now';
+  const min = Math.round(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.round(min / 60);
+  if (hr < 36) return `${hr}h ago`;
+  const day = Math.round(hr / 24);
+  return `${day}d ago`;
+}
+
+/** Human-readable last vault sync for UI (relative + absolute). */
 export function formatVaultSyncedAt(updatedAt: number): string {
-  if (!updatedAt) return 'Never synced';
+  if (!updatedAt) return 'Never synced on this device';
   try {
-    return `Last synced ${new Date(updatedAt).toLocaleString()}`;
+    const when = new Date(updatedAt).toLocaleString();
+    return `Last synced ${formatRelativeAgo(updatedAt)} (${when})`;
   } catch {
     return 'Last synced recently';
   }
+}
+
+/** Short status for the new-tab chrome when Safe backup is on. */
+export function formatVaultSyncBadge(updatedAt: number): string {
+  if (!updatedAt) return 'Safe backup · not synced yet';
+  return `Safe backup · synced ${formatRelativeAgo(updatedAt)}`;
 }
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;

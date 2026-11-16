@@ -63,6 +63,12 @@ export type Settings = {
    * Shortcuts listed in a group are omitted here.
    */
   homeOrder: string[];
+  /** Home ids pinned to the front of the grid (subset of homeOrder). */
+  pinnedHomeIds: string[];
+  /** Home ids hidden from the grid (still kept; visible while editing). */
+  hiddenHomeIds: string[];
+  /** One sticky note on the new tab (synced with Safe backup). */
+  quickNote: string;
   branding: Branding;
   /** Opt-in encrypted backup to the meta helper. */
   vaultEnabled: boolean;
