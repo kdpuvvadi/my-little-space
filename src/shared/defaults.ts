@@ -51,7 +51,6 @@ export const DEFAULT_BRANDING: Branding = {
 
 /** Popular sites shown on first install and after Reset to default. */
 const DEFAULT_SHORTCUT_SEEDS: ReadonlyArray<{ id: string; url: string }> = [
-  { id: 'sc-default-google', url: 'https://www.google.com' },
   { id: 'sc-default-youtube', url: 'https://www.youtube.com' },
   { id: 'sc-default-gmail', url: 'https://mail.google.com' },
   { id: 'sc-default-github', url: 'https://github.com' },
