@@ -70,6 +70,7 @@ export function createDefaultShortcuts(): Shortcut[] {
       iconUrl: meta.iconUrl,
       metaFetchedAt: 0,
       iconCustom: false,
+      openInNewTab: false,
     };
   });
 }

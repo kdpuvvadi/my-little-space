@@ -59,6 +59,7 @@ function normalizeShortcut(raw: unknown, index: number): Shortcut | null {
     iconUrl: storedIcon,
     metaFetchedAt,
     iconCustom,
+    openInNewTab: raw.openInNewTab === true,
   };
 }
 

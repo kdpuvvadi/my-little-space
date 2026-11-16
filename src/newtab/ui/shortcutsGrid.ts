@@ -468,9 +468,12 @@ export function createShortcutsGrid(options: {
     const title = resolveShortcutTitle(sc.url, sc.title);
     const pinned = isPinned(sc.id);
     const hidden = isHidden(sc.id);
+    const newTabAttrs = sc.openInNewTab
+      ? ' target="_blank" rel="noopener noreferrer"'
+      : '';
     return `
       <div class="shortcut-item ${editing ? 'editing' : ''} ${pinned ? 'is-pinned' : ''} ${hidden ? 'is-hidden' : ''}" data-id="${sc.id}" data-kind="shortcut">
-        <a class="shortcut-tile" href="${escapeAttr(sc.url)}" ${editing ? 'tabindex="-1"' : ''}>
+        <a class="shortcut-tile" href="${escapeAttr(sc.url)}"${newTabAttrs} ${editing ? 'tabindex="-1"' : ''}>
           ${shortcutTileInner(sc)}
         </a>
         <div class="shortcut-label" title="${escapeAttr(title)}">${escapeAttr(title)}</div>
@@ -650,9 +653,12 @@ export function createShortcutsGrid(options: {
     sheetGrid.innerHTML = kids
       .map((sc) => {
         const title = resolveShortcutTitle(sc.url, sc.title);
+        const newTabAttrs = sc.openInNewTab
+          ? ' target="_blank" rel="noopener noreferrer"'
+          : '';
         return `
         <div class="shortcut-item group-member ${editing ? 'editing' : ''}" data-id="${sc.id}">
-          <a class="shortcut-tile" href="${escapeAttr(sc.url)}" ${editing ? 'tabindex="-1"' : ''}>
+          <a class="shortcut-tile" href="${escapeAttr(sc.url)}"${newTabAttrs} ${editing ? 'tabindex="-1"' : ''}>
             ${shortcutTileInner(sc)}
           </a>
           <div class="shortcut-label" title="${escapeAttr(title)}">${escapeAttr(title)}</div>

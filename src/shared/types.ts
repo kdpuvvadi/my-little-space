@@ -14,6 +14,8 @@ export type Shortcut = {
   metaFetchedAt: number;
   /** True when the user set a custom Icon URL — never auto-replaced. */
   iconCustom: boolean;
+  /** Open this shortcut in a new tab (default false). */
+  openInNewTab: boolean;
 };
 
 /** Folder of shortcuts on the home grid. */

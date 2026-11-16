@@ -46,6 +46,7 @@ const KNOWN_SHORTCUT_KEYS = new Set([
   'iconUrl',
   'metaFetchedAt',
   'iconCustom',
+  'openInNewTab',
 ]);
 const KNOWN_GROUP_KEYS = new Set(['id', 'title', 'shortcutIds', 'accentColor']);
 const KNOWN_PROVIDER_KEYS = new Set(['id', 'name', 'bang', 'searchUrl']);
@@ -81,13 +82,14 @@ export function settingsToYaml(settings: Settings): string {
     })),
     branding: settings.branding,
     shortcuts: settings.shortcuts.map(
-      ({ id, url, title, iconUrl, metaFetchedAt, iconCustom }) => ({
+      ({ id, url, title, iconUrl, metaFetchedAt, iconCustom, openInNewTab }) => ({
         id,
         url,
         title,
         iconUrl,
         metaFetchedAt,
         iconCustom,
+        openInNewTab,
       }),
     ),
     groups: settings.groups.map(({ id, title, shortcutIds, accentColor }) => ({

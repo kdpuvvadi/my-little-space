@@ -10,6 +10,7 @@ import {
   removeShortcutFromGroup,
   shortcutsInGroup,
 } from '../shared/groups';
+import { openShortcutUrl } from '../shared/shortcuts';
 import { fetchSiteMeta, isMetaExpired } from '../shared/siteMetaClient';
 import { loadSettings, saveSettings, updateSettings } from '../shared/storage';
 import { applyTheme, watchSystemTheme } from '../shared/theme';
@@ -603,7 +604,7 @@ async function main(): Promise<void> {
         const group = settings.groups.find((g) => g.id === openGroupId);
         if (!group) return;
         const item = shortcutsInGroup(group, settings.shortcuts)[Number(e.key) - 1];
-        if (item?.url) window.location.assign(item.url);
+        if (item) openShortcutUrl(item);
       }
       return;
     }
@@ -648,7 +649,7 @@ async function main(): Promise<void> {
         return;
       }
       const shortcut = settings.shortcuts.find((s) => s.id === id);
-      if (shortcut?.url) window.location.assign(shortcut.url);
+      if (shortcut) openShortcutUrl(shortcut);
     }
   });
 

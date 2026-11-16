@@ -41,6 +41,10 @@ export function createShortcutModal(options: {
         <label for="sc-title">Name</label>
         <input type="text" id="sc-title" placeholder="Filled from the URL / page title" />
       </div>
+      <div class="field-row">
+        <label for="sc-new-tab">Open in new tab</label>
+        <input type="checkbox" id="sc-new-tab" />
+      </div>
       <div class="field">
         <span class="field-label-text">Icon</span>
         <div class="icon-picker-row">
@@ -84,6 +88,7 @@ export function createShortcutModal(options: {
   const titleEl = root.querySelector('#shortcut-modal-title') as HTMLHeadingElement;
   const urlInput = root.querySelector('#sc-url') as HTMLInputElement;
   const titleInput = root.querySelector('#sc-title') as HTMLInputElement;
+  const newTabInput = root.querySelector('#sc-new-tab') as HTMLInputElement;
   const iconInput = root.querySelector('#sc-icon') as HTMLInputElement;
   const statusEl = root.querySelector('#sc-status') as HTMLElement;
   const errorEl = root.querySelector('#sc-error') as HTMLElement;
@@ -255,6 +260,7 @@ export function createShortcutModal(options: {
       stored.trim() ||
       (shortcut ? resolveShortcutIconUrl(shortcut.url, stored) : '');
     iconInput.value = display;
+    newTabInput.checked = shortcut?.openInNewTab === true;
     lastFetchedIcon = shortcut && !shortcut.iconCustom ? shortcut.iconUrl : '';
     lastMetaFetchedAt = shortcut?.metaFetchedAt ?? 0;
     iconPicked = shortcut?.iconCustom === true;
@@ -394,6 +400,7 @@ export function createShortcutModal(options: {
 
     const metaFetchedAt = lastMetaFetchedAt || editing?.metaFetchedAt || Date.now();
 
+    const openInNewTab = newTabInput.checked;
     const shortcut = editing
       ? {
           ...editing,
@@ -402,6 +409,7 @@ export function createShortcutModal(options: {
           iconUrl,
           metaFetchedAt,
           iconCustom,
+          openInNewTab,
         }
       : newShortcut({
           url,
@@ -409,6 +417,7 @@ export function createShortcutModal(options: {
           iconUrl,
           metaFetchedAt,
           iconCustom,
+          openInNewTab,
         });
 
     await options.onSave(shortcut);

@@ -112,6 +112,7 @@ export function newShortcut(partial: {
   iconUrl?: string;
   metaFetchedAt?: number;
   iconCustom?: boolean;
+  openInNewTab?: boolean;
 }): Shortcut {
   const url = normalizePageUrl(partial.url);
   const guess = guessPageMeta(url);
@@ -122,5 +123,17 @@ export function newShortcut(partial: {
     iconUrl: (partial.iconUrl ?? guess.iconUrl).trim(),
     metaFetchedAt: partial.metaFetchedAt ?? 0,
     iconCustom: partial.iconCustom === true,
+    openInNewTab: partial.openInNewTab === true,
   };
+}
+
+/** Navigate according to the shortcut's openInNewTab flag. */
+export function openShortcutUrl(shortcut: Pick<Shortcut, 'url' | 'openInNewTab'>): void {
+  const url = shortcut.url?.trim();
+  if (!url) return;
+  if (shortcut.openInNewTab) {
+    window.open(url, '_blank', 'noopener,noreferrer');
+    return;
+  }
+  window.location.assign(url);
 }
