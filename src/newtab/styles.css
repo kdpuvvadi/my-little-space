@@ -570,7 +570,15 @@ a {
   background: var(--panel-bg);
   box-shadow: 6px 0 18px rgba(48, 59, 51, 0.08);
   transform: translateX(0);
+}
+
+.quick-note-panel.is-opening {
   animation: quick-note-slide-in 0.2s ease-out;
+}
+
+.quick-note-panel.is-closing {
+  animation: quick-note-slide-out 0.2s ease-out forwards;
+  pointer-events: none;
 }
 
 .quick-note-panel[hidden] {
@@ -585,6 +593,17 @@ a {
   to {
     transform: translateX(0);
     opacity: 1;
+  }
+}
+
+@keyframes quick-note-slide-out {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(-100%);
+    opacity: 0.85;
   }
 }
 

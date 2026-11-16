@@ -38,34 +38,62 @@ export function createQuickNote(options: {
   const input = root.querySelector('#mls-quick-note') as HTMLTextAreaElement;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let lastEmitted = '';
+  let closing = false;
 
   const onDocPointerDown = (e: Event) => {
-    if (!root.classList.contains('is-expanded')) return;
+    if (!root.classList.contains('is-expanded') || closing) return;
     const target = e.target as Node | null;
     if (target && root.contains(target)) return;
     setExpanded(false);
   };
 
+  const finishClose = () => {
+    closing = false;
+    panel.classList.remove('is-closing');
+    panel.hidden = true;
+    root.classList.remove('is-expanded');
+    tab.setAttribute('aria-expanded', 'false');
+  };
+
   const setExpanded = (open: boolean) => {
-    root.classList.toggle('is-expanded', open);
-    tab.setAttribute('aria-expanded', String(open));
-    panel.hidden = !open;
     try {
       sessionStorage.setItem(EXPAND_KEY, open ? '1' : '0');
     } catch {
       // ignore
     }
     document.removeEventListener('pointerdown', onDocPointerDown, true);
+
     if (open) {
+      closing = false;
+      panel.classList.remove('is-closing');
+      panel.hidden = false;
+      root.classList.add('is-expanded');
+      tab.setAttribute('aria-expanded', 'true');
+      // Restart slide-in if re-opened quickly.
+      panel.classList.remove('is-opening');
+      void panel.offsetWidth;
+      panel.classList.add('is-opening');
       // Defer so the opening click doesn't immediately collapse.
       requestAnimationFrame(() => {
         document.addEventListener('pointerdown', onDocPointerDown, true);
         input.focus();
       });
-    } else {
-      if (timer) clearTimeout(timer);
-      emit();
+      return;
     }
+
+    if (panel.hidden || closing) return;
+    if (timer) clearTimeout(timer);
+    emit();
+    closing = true;
+    tab.setAttribute('aria-expanded', 'false');
+    panel.classList.remove('is-opening');
+    panel.classList.add('is-closing');
+    const onEnd = (e: AnimationEvent) => {
+      if (e.target !== panel || e.animationName !== 'quick-note-slide-out') return;
+      panel.removeEventListener('animationend', onEnd);
+      finishClose();
+    };
+    panel.addEventListener('animationend', onEnd);
   };
 
   try {
