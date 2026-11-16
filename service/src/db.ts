@@ -54,5 +54,12 @@ function migrate(database: Database.Database): void {
       first_seen_at INTEGER NOT NULL,
       last_seen_at INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS vaults (
+      sync_id TEXT PRIMARY KEY NOT NULL,
+      blob TEXT NOT NULL,
+      updated_at INTEGER NOT NULL,
+      bytes INTEGER NOT NULL
+    );
   `);
 }

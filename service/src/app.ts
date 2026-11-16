@@ -5,6 +5,11 @@ import { apiSchema, serviceRootInfo } from './info.js';
 import { siteMetrics } from './metrics.js';
 import { handleSiteLookup } from './siteRoute.js';
 import { getStats } from './stats.js';
+import {
+  handleVaultDelete,
+  handleVaultGet,
+  handleVaultPut,
+} from './vaultRoute.js';
 
 export const app = new Hono();
 
@@ -25,3 +30,7 @@ app.use('/v1/site/*', siteMetrics);
 
 app.get('/v1/site', siteMetrics, (c) => handleSiteLookup(c));
 app.get('/v1/site/:host{.+}', (c) => handleSiteLookup(c));
+
+app.get('/v1/vault/:syncId', (c) => handleVaultGet(c));
+app.put('/v1/vault/:syncId', (c) => handleVaultPut(c));
+app.delete('/v1/vault/:syncId', (c) => handleVaultDelete(c));
