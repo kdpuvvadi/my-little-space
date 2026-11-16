@@ -522,21 +522,25 @@ a {
 }
 
 .quick-note-tab {
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
+  /* No rotate — that was flipping border-radius onto the screen edge. */
+  writing-mode: vertical-lr;
+  text-orientation: upright;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   height: auto;
   min-height: 5.5rem;
-  padding: 0.75rem 0.4rem;
+  padding: 0.85rem 0.45rem;
   border-radius: 0 12px 12px 0;
   border: 1px solid var(--panel-border);
-  border-left: none;
+  border-left: 0;
   background: var(--panel-bg);
   color: var(--muted);
   font-size: 0.72rem;
   font-weight: 650;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  box-shadow: 4px 0 12px rgba(48, 59, 51, 0.06);
+  box-shadow: 4px 0 14px rgba(48, 59, 51, 0.08);
 }
 
 .quick-note-rail.has-content .quick-note-tab {
