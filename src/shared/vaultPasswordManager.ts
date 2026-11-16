@@ -2,43 +2,69 @@
 
 export const VAULT_PM_USERNAME = 'my-little-space-vault';
 
-type PasswordCredentialLike = {
+type PasswordCredentialCtor = {
   new (data: { id: string; password: string }): Credential;
+  new (form: HTMLFormElement): Credential;
 };
 
+function getPasswordCredentialCtor(): PasswordCredentialCtor | null {
+  return (
+    (globalThis as unknown as { PasswordCredential?: PasswordCredentialCtor }).PasswordCredential ??
+    null
+  );
+}
+
+export type VaultPmSaveResult = 'stored' | 'dismissed' | 'unsupported';
+
 /**
- * Best-effort: Credentials API (Chromium) plus a standard autocomplete form
- * submit so browsers can offer to store the recovery key.
+ * Trigger the browser password-manager save UI from a user gesture.
+ * Prefer a visible form (username + password); hidden/clipped fields are ignored.
  */
 export async function saveRecoveryKeyToPasswordManager(
   recoveryKey: string,
   form?: HTMLFormElement | null,
-): Promise<void> {
-  const PasswordCredentialCtor = (
-    globalThis as unknown as { PasswordCredential?: PasswordCredentialLike }
-  ).PasswordCredential;
+): Promise<VaultPmSaveResult> {
+  const PasswordCredentialCtor = getPasswordCredentialCtor();
+  if (!PasswordCredentialCtor || !navigator.credentials?.store) {
+    return 'unsupported';
+  }
 
-  if (PasswordCredentialCtor && navigator.credentials?.store) {
-    try {
-      const cred = new PasswordCredentialCtor({
-        id: VAULT_PM_USERNAME,
-        password: recoveryKey,
-      });
-      await navigator.credentials.store(cred);
-    } catch {
-      // Fall through to form-based save.
+  // Ensure form fields carry the current key before constructing the credential.
+  if (form) {
+    const user = form.querySelector<HTMLInputElement>(
+      'input[autocomplete~="username"], input[name="username"]',
+    );
+    const pwd = form.querySelector<HTMLInputElement>(
+      'input[type="password"], input[autocomplete~="new-password"]',
+    );
+    if (user) user.value = VAULT_PM_USERNAME;
+    if (pwd) {
+      pwd.value = recoveryKey;
+      pwd.readOnly = false;
     }
   }
 
-  if (form) {
-    try {
-      // Focus password field so managers that listen for submit/focus can offer save.
-      const pwd = form.querySelector<HTMLInputElement>('input[type="password"]');
-      pwd?.focus();
-      form.requestSubmit?.();
-    } catch {
-      // ignore
+  try {
+    let cred: Credential | null = null;
+    if (form) {
+      try {
+        cred = new PasswordCredentialCtor(form);
+      } catch {
+        cred = null;
+      }
     }
+    if (!cred) {
+      cred = new PasswordCredentialCtor({
+        id: VAULT_PM_USERNAME,
+        password: recoveryKey,
+      });
+    }
+
+    const stored = await navigator.credentials.store(cred);
+    // Chromium resolves with the credential when saved, null if dismissed.
+    return stored ? 'stored' : 'dismissed';
+  } catch {
+    return 'unsupported';
   }
 }
 

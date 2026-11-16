@@ -280,20 +280,18 @@ export function createSettingsPanel(options: {
           ${
             pendingRecoveryKey
               ? `
-          <div class="field">
-            <label for="vaultRecoveryKeyDisplay">Recovery key — save this now</label>
-            <input type="text" id="vaultRecoveryKeyDisplay" readonly value="${escapeAttr(pendingRecoveryKey)}" />
-            <p class="panel-note">Password manager username: <code>${VAULT_PM_USERNAME}</code> (password = this key).</p>
-            <form id="mls-vault-pm" class="vault-pm-honeypot" autocomplete="on">
-              <input type="text" name="username" autocomplete="username" value="${VAULT_PM_USERNAME}" readonly tabindex="-1" aria-hidden="true" />
-              <input type="password" name="password" autocomplete="new-password" value="${escapeAttr(pendingRecoveryKey)}" readonly tabindex="-1" aria-hidden="true" />
-            </form>
+          <form id="mls-vault-pm" class="field vault-pm-save" method="post" action="#" autocomplete="on">
+            <p class="panel-note">Save this recovery key now. Username is fixed; password is the key.</p>
+            <label for="vaultPmUsername">Username</label>
+            <input type="text" id="vaultPmUsername" name="username" autocomplete="username" value="${VAULT_PM_USERNAME}" readonly />
+            <label for="vaultPmPassword">Recovery key</label>
+            <input type="password" id="vaultPmPassword" name="password" autocomplete="new-password" value="${escapeAttr(pendingRecoveryKey)}" />
             <div class="panel-actions">
+              <button type="submit" class="btn primary" id="vaultSavePm">Save in password manager</button>
               <button type="button" class="btn" id="vaultCopyKey">Copy key</button>
-              <button type="button" class="btn primary" id="vaultSavePm">Save in password manager</button>
               <button type="button" class="btn" id="vaultKeySaved">I've saved my key</button>
             </div>
-          </div>
+          </form>
           `
               : ''
           }
@@ -610,13 +608,34 @@ export function createSettingsPanel(options: {
       })();
     });
 
-    body.querySelector('#vaultSavePm')?.addEventListener('click', () => {
+    const runPasswordManagerSave = () => {
       void (async () => {
         if (!pendingRecoveryKey) return;
         const form = body.querySelector('#mls-vault-pm') as HTMLFormElement | null;
-        await saveRecoveryKeyToPasswordManager(pendingRecoveryKey, form);
-        setVaultFeedback('Password manager prompted (if supported). Confirm the save.');
+        const result = await saveRecoveryKeyToPasswordManager(pendingRecoveryKey, form);
+        if (result === 'stored') {
+          setVaultFeedback('Recovery key saved in the password manager.');
+        } else if (result === 'dismissed') {
+          setVaultFeedback('Password manager prompt closed without saving.');
+        } else {
+          try {
+            await navigator.clipboard.writeText(pendingRecoveryKey);
+            setVaultFeedback(
+              'Browser did not offer a save prompt here. Key copied — paste it into your password manager (username: my-little-space-vault).',
+            );
+          } catch {
+            setVaultFeedback(
+              '',
+              'Browser did not offer a save prompt. Copy the key and save it in your password manager manually.',
+            );
+          }
+        }
       })();
+    };
+
+    body.querySelector('#mls-vault-pm')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      runPasswordManagerSave();
     });
 
     body.querySelector('#vaultKeySaved')?.addEventListener('click', () => {
@@ -746,9 +765,6 @@ export function createSettingsPanel(options: {
     body.querySelector('#mls-vault-restore')?.addEventListener('submit', (e) => {
       e.preventDefault();
       runRestore();
-    });
-    body.querySelector('#mls-vault-pm')?.addEventListener('submit', (e) => {
-      e.preventDefault();
     });
   }
 

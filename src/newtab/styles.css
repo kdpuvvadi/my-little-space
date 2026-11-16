@@ -1623,9 +1623,8 @@ a {
   margin: 0.35rem 0 0;
 }
 
-/* Password-manager honeypot fields — keep in DOM, hide visually. */
-.vault-pm-honeypot:not(form),
-form.vault-pm-honeypot {
+/* Restore-only: keep username in the form for autofill, hide visually. */
+.vault-pm-honeypot {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -1635,6 +1634,14 @@ form.vault-pm-honeypot {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+.vault-pm-save label {
+  margin-top: 0.35rem;
+}
+
+.vault-pm-save label:first-of-type {
+  margin-top: 0;
 }
 
 .field .panel-actions {
