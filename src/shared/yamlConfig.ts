@@ -15,6 +15,9 @@ const KNOWN_TOP_KEYS = new Set([
   'groups',
   'homeOrder',
   'branding',
+  'vaultEnabled',
+  'vaultSyncId',
+  'vaultUpdatedAt',
 ]);
 
 const KNOWN_BRANDING_KEYS = new Set([
@@ -90,6 +93,9 @@ export function settingsToYaml(settings: Settings): string {
       accentColor,
     })),
     homeOrder: settings.homeOrder,
+    vaultEnabled: settings.vaultEnabled,
+    vaultSyncId: settings.vaultSyncId,
+    vaultUpdatedAt: settings.vaultUpdatedAt,
   };
   return stringify(payload, { lineWidth: 0 });
 }

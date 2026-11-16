@@ -64,5 +64,8 @@ export function createDefaultSettings(): Settings {
     groups: [],
     homeOrder: [],
     branding: { ...DEFAULT_BRANDING },
+    vaultEnabled: false,
+    vaultSyncId: '',
+    vaultUpdatedAt: 0,
   };
 }

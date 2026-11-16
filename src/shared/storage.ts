@@ -7,6 +7,7 @@ import {
 import { normalizeProviders } from './providers';
 import { resolveShortcutTitle } from './siteTitles';
 import type { Branding, Settings, Shortcut, ShortcutGroup } from './types';
+import { scheduleVaultSync } from './vaultSync';
 
 const STORAGE_KEY = 'mlsSettings';
 
@@ -157,6 +158,15 @@ export function normalizeSettings(raw: unknown): Settings {
     groups,
     homeOrder,
     branding: mergeBranding(raw.branding),
+    vaultEnabled: raw.vaultEnabled === true,
+    vaultSyncId:
+      typeof raw.vaultSyncId === 'string' && /^[a-f0-9]{64}$/i.test(raw.vaultSyncId.trim())
+        ? raw.vaultSyncId.trim().toLowerCase()
+        : '',
+    vaultUpdatedAt:
+      typeof raw.vaultUpdatedAt === 'number' && Number.isFinite(raw.vaultUpdatedAt)
+        ? raw.vaultUpdatedAt
+        : 0,
   };
 }
 
@@ -169,9 +179,15 @@ export async function loadSettings(): Promise<Settings> {
   }
 }
 
-export async function saveSettings(settings: Settings): Promise<void> {
+export async function saveSettings(
+  settings: Settings,
+  options: { skipVaultSync?: boolean } = {},
+): Promise<void> {
   const normalized = normalizeSettings(settings);
   await chrome.storage.local.set({ [STORAGE_KEY]: normalized });
+  if (!options.skipVaultSync && normalized.vaultEnabled && normalized.vaultSyncId) {
+    scheduleVaultSync(normalized);
+  }
 }
 
 export async function updateSettings(
