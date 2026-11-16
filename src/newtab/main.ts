@@ -11,6 +11,7 @@ import { fetchSiteMeta, isMetaExpired } from '../shared/siteMetaClient';
 import { loadSettings, saveSettings, updateSettings } from '../shared/storage';
 import { applyTheme, watchSystemTheme } from '../shared/theme';
 import type { Settings, Shortcut, ShortcutGroup, ThemeMode } from '../shared/types';
+import { maybeStaleVaultSync } from '../shared/vaultSync';
 import { logoSvg, moonSvg, slidersSvg, sunSvg, systemSvg } from './ui/icons';
 import { createSearchBar } from './ui/searchBar';
 import { createSettingsPanel } from './ui/settingsPanel';
@@ -486,6 +487,16 @@ async function main(): Promise<void> {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
       e.preventDefault();
       searchBar.focus();
+    }
+  });
+
+  // Quiet background sync if last vault upload is stale (>15 min).
+  void maybeStaleVaultSync().then((outcome) => {
+    if (outcome?.ok) {
+      void loadSettings().then((next) => {
+        settings = next;
+        settingsPanel.setSettings(next);
+      });
     }
   });
 }
