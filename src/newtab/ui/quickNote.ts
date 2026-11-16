@@ -19,7 +19,7 @@ export function createQuickNote(options: {
       <div class="quick-note-panel-header">
         <span class="quick-note-panel-title">Note</span>
         <button type="button" class="quick-note-collapse" id="mls-quick-note-collapse" title="Collapse" aria-label="Collapse note">
-          <span aria-hidden="true">›</span>
+          <span aria-hidden="true">‹</span>
         </button>
       </div>
       <textarea

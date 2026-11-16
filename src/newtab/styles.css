@@ -508,12 +508,12 @@ a {
 
 .quick-note-rail {
   position: fixed;
-  left: 0.65rem;
+  left: 0;
   top: 50%;
   transform: translateY(-50%);
   z-index: 35;
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   pointer-events: none;
 }
 
@@ -527,15 +527,16 @@ a {
   height: auto;
   min-height: 5.5rem;
   padding: 0.75rem 0.4rem;
-  border-radius: 12px;
+  border-radius: 0 12px 12px 0;
   border: 1px solid var(--panel-border);
+  border-left: none;
   background: var(--panel-bg);
   color: var(--muted);
   font-size: 0.72rem;
   font-weight: 650;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  box-shadow: var(--shadow);
+  box-shadow: 4px 0 12px rgba(48, 59, 51, 0.06);
 }
 
 .quick-note-rail.has-content .quick-note-tab {
@@ -543,24 +544,44 @@ a {
 }
 
 .quick-note-rail.is-expanded .quick-note-tab {
-  display: none;
+  visibility: hidden;
+  pointer-events: none;
+  width: 0;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  overflow: hidden;
 }
 
 .quick-note-panel {
-  width: min(280px, calc(100vw - 1.5rem));
+  width: min(280px, calc(100vw - 1rem));
   max-height: min(70vh, 420px);
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
-  padding: 0.7rem 0.75rem 0.8rem;
-  border-radius: 14px;
+  padding: 0.7rem 0.75rem 0.8rem 0.85rem;
+  border-radius: 0 14px 14px 0;
   border: 1px solid var(--panel-border);
+  border-left: none;
   background: var(--panel-bg);
-  box-shadow: var(--shadow);
+  box-shadow: 6px 0 18px rgba(48, 59, 51, 0.08);
+  transform: translateX(0);
+  animation: quick-note-slide-in 0.2s ease-out;
 }
 
 .quick-note-panel[hidden] {
   display: none !important;
+}
+
+@keyframes quick-note-slide-in {
+  from {
+    transform: translateX(-100%);
+    opacity: 0.85;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 .quick-note-panel-header {
@@ -592,14 +613,14 @@ a {
   border: 1px solid var(--panel-border);
   background: var(--bg);
   color: var(--muted);
-  font-size: 1.05rem;
+  font-size: 1.15rem;
   line-height: 1;
   flex-shrink: 0;
 }
 
 .quick-note-collapse span {
   display: block;
-  translate: 0 -0.5px;
+  translate: -0.5px -0.5px;
 }
 
 .quick-note-collapse:hover {
@@ -628,14 +649,15 @@ a {
 }
 
 @media (max-width: 720px) {
-  .quick-note-rail {
-    left: 0.4rem;
-  }
-
   .quick-note-panel {
-    width: min(240px, calc(100vw - 1rem));
+    width: min(240px, calc(100vw - 0.75rem));
     max-height: min(55vh, 320px);
   }
+}
+
+html[data-theme='dark'] .quick-note-tab,
+html[data-theme='dark'] .quick-note-panel {
+  box-shadow: 6px 0 18px rgba(0, 0, 0, 0.35);
 }
 
 .shortcuts-section {
