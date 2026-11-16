@@ -60,9 +60,13 @@ export async function saveRecoveryKeyToPasswordManager(
       });
     }
 
-    const stored = await navigator.credentials.store(cred);
-    // Chromium resolves with the credential when saved, null if dismissed.
-    return stored ? 'stored' : 'dismissed';
+    // Typings vary (Credential | null | void). Treat a resolved call as prompted.
+    const stored = (await navigator.credentials.store(cred)) as
+      | Credential
+      | null
+      | void;
+    if (stored === null) return 'dismissed';
+    return 'stored';
   } catch {
     return 'unsupported';
   }
