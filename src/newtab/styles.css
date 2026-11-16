@@ -508,12 +508,12 @@ a {
 
 .quick-note-rail {
   position: fixed;
-  left: 0;
+  left: 0.65rem;
   top: 50%;
   transform: translateY(-50%);
   z-index: 35;
   display: flex;
-  align-items: stretch;
+  align-items: flex-start;
   pointer-events: none;
 }
 
@@ -526,10 +526,9 @@ a {
   transform: rotate(180deg);
   height: auto;
   min-height: 5.5rem;
-  padding: 0.75rem 0.35rem;
-  border-radius: 0 12px 12px 0;
+  padding: 0.75rem 0.4rem;
+  border-radius: 12px;
   border: 1px solid var(--panel-border);
-  border-left: none;
   background: var(--panel-bg);
   color: var(--muted);
   font-size: 0.72rem;
@@ -552,11 +551,10 @@ a {
   max-height: min(70vh, 420px);
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.75rem 0.85rem 0.9rem;
-  border-radius: 0 16px 16px 0;
+  gap: 0.55rem;
+  padding: 0.7rem 0.75rem 0.8rem;
+  border-radius: 14px;
   border: 1px solid var(--panel-border);
-  border-left: none;
   background: var(--panel-bg);
   box-shadow: var(--shadow);
 }
@@ -570,6 +568,7 @@ a {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
+  min-height: 28px;
 }
 
 .quick-note-panel-title {
@@ -578,13 +577,34 @@ a {
   text-transform: uppercase;
   color: var(--muted-2);
   font-weight: 650;
+  line-height: 1;
 }
 
 .quick-note-collapse {
-  width: 26px;
-  height: 26px;
-  font-size: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid var(--panel-border);
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 1.05rem;
   line-height: 1;
+  flex-shrink: 0;
+}
+
+.quick-note-collapse span {
+  display: block;
+  translate: 0 -0.5px;
+}
+
+.quick-note-collapse:hover {
+  color: var(--text);
+  border-color: var(--accent);
 }
 
 .quick-note-input {
@@ -593,7 +613,7 @@ a {
   min-height: 10rem;
   resize: none;
   border: 1px solid var(--panel-border);
-  border-radius: 12px;
+  border-radius: 10px;
   padding: 0.65rem 0.75rem;
   background: var(--bg);
   color: var(--text);
@@ -608,6 +628,10 @@ a {
 }
 
 @media (max-width: 720px) {
+  .quick-note-rail {
+    left: 0.4rem;
+  }
+
   .quick-note-panel {
     width: min(240px, calc(100vw - 1rem));
     max-height: min(55vh, 320px);
