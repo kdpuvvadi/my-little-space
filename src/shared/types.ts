@@ -64,4 +64,12 @@ export type Settings = {
    */
   homeOrder: string[];
   branding: Branding;
+  /** Opt-in encrypted backup to the meta helper. */
+  vaultEnabled: boolean;
+  /** SHA-256 hex sync id derived from the recovery key (public). */
+  vaultSyncId: string;
+  /** Epoch ms of last successful vault upload from this device. */
+  vaultUpdatedAt: number;
+  /** True after the recovery key was downloaded/acknowledged — never show it again. */
+  vaultKeySaved: boolean;
 };

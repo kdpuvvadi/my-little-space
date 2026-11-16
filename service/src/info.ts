@@ -51,6 +51,38 @@ export function apiSchema() {
         },
       },
       {
+        method: 'PUT',
+        path: '/v1/vault/{syncId}',
+        description:
+          'Upsert an encrypted settings vault blob. syncId is SHA-256 hex of the recovery key material. Server stores opaque ciphertext only.',
+        example: `${SERVICE_URL}/v1/vault/0123…abcd`,
+        body: {
+          v: 1,
+          alg: 'AES-GCM',
+          kdf: 'PBKDF2',
+          iterations: 310000,
+          salt: 'base64',
+          iv: 'base64',
+          ciphertext: 'base64',
+          updatedAt: 'number',
+        },
+        response: { ok: true, syncId: 'string', updatedAt: 'number', bytes: 'number' },
+      },
+      {
+        method: 'GET',
+        path: '/v1/vault/{syncId}',
+        description: 'Fetch an encrypted vault envelope by sync id.',
+        example: `${SERVICE_URL}/v1/vault/0123…abcd`,
+        response: { v: 1, ciphertext: 'base64', '…': 'envelope fields' },
+      },
+      {
+        method: 'DELETE',
+        path: '/v1/vault/{syncId}',
+        description: 'Delete a vault blob.',
+        example: `${SERVICE_URL}/v1/vault/0123…abcd`,
+        response: { ok: true },
+      },
+      {
         method: 'GET',
         path: '/health',
         description: 'Liveness check.',

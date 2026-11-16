@@ -1434,6 +1434,16 @@ a {
   margin-bottom: 0.75rem;
 }
 
+.advanced-subgroup {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border, rgba(0, 0, 0, 0.08));
+}
+
+.advanced-subgroup h3 {
+  margin-top: 0;
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -1480,6 +1490,7 @@ a {
 
 .field input[type='text'],
 .field input[type='url'],
+.field input[type='password'],
 .field textarea,
 .field select {
   width: 100%;
@@ -1572,8 +1583,35 @@ a {
 .panel-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.5rem;
   margin-top: 0.5rem;
+}
+
+.panel-actions.vault-actions {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.panel-actions.vault-actions:has(> .btn:only-child),
+.panel-actions.vault-actions-secondary {
+  grid-template-columns: 1fr;
+}
+
+.panel-actions.vault-actions-secondary {
+  margin-top: 0.35rem;
+}
+
+.panel-actions.vault-actions .btn {
+  width: 100%;
+  min-width: 0;
+  justify-content: center;
+}
+
+.vault-restore-block {
+  margin-top: 0.35rem;
 }
 
 .btn {
@@ -1610,6 +1648,56 @@ a {
   color: var(--muted);
   font-size: 0.8rem;
   margin: 0.35rem 0 0;
+}
+
+.field .panel-actions {
+  margin-top: 0.15rem;
+}
+
+.vault-key-modal {
+  width: min(440px, 100%);
+}
+
+.vault-key-modal .panel-note strong {
+  color: var(--text, inherit);
+  font-weight: 650;
+}
+
+.vault-key-modal-actions {
+  justify-content: stretch;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.5rem;
+}
+
+.vault-key-modal-actions .btn {
+  width: 100%;
+}
+
+.vault-key-modal-root {
+  /* Highest above settings drawer while key setup is required. */
+  z-index: 80;
+}
+
+.dialog-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+}
+
+.dialog-choice-btn {
+  width: 100%;
+  height: auto;
+  min-height: 36px;
+  padding: 0.55rem 0.9rem;
+  white-space: normal;
+  text-align: center;
+  border-radius: 12px;
+}
+
+.app-dialog-body {
+  margin-top: 0.35rem;
 }
 
 /* Modal dialogs */
