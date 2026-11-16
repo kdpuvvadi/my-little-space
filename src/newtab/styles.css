@@ -1480,6 +1480,7 @@ a {
 
 .field input[type='text'],
 .field input[type='url'],
+.field input[type='password'],
 .field textarea,
 .field select {
   width: 100%;
@@ -1612,8 +1613,9 @@ a {
   margin: 0.35rem 0 0;
 }
 
-.vault-pm-form,
-.vault-restore-form .vault-pm-username {
+/* Password-manager honeypot fields — keep in DOM, hide visually. */
+.vault-pm-honeypot:not(form),
+form.vault-pm-honeypot {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -1625,15 +1627,8 @@ a {
   border: 0;
 }
 
-.vault-restore-form {
-  position: relative;
-}
-
-.vault-restore-form #vaultRestoreKey,
-.vault-key-reveal #vaultRecoveryKeyDisplay {
-  width: 100%;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.82rem;
+.field .panel-actions {
+  margin-top: 0.15rem;
 }
 
 /* Modal dialogs */

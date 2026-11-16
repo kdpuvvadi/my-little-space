@@ -245,11 +245,11 @@ export function createSettingsPanel(options: {
         ${
           pendingRecoveryKey
             ? `
-        <div class="field vault-key-reveal">
+        <div class="field">
           <label for="vaultRecoveryKeyDisplay">Recovery key — save this now</label>
           <input type="text" id="vaultRecoveryKeyDisplay" readonly value="${escapeAttr(pendingRecoveryKey)}" />
-          <p class="panel-note">Username for password managers: <code>${VAULT_PM_USERNAME}</code>. The password is this recovery key.</p>
-          <form id="mls-vault-pm" class="vault-pm-form" autocomplete="on">
+          <p class="panel-note">Password manager username: <code>${VAULT_PM_USERNAME}</code> (password = this key).</p>
+          <form id="mls-vault-pm" class="vault-pm-honeypot" autocomplete="on">
             <input type="text" name="username" autocomplete="username" value="${VAULT_PM_USERNAME}" readonly tabindex="-1" aria-hidden="true" />
             <input type="password" name="password" autocomplete="new-password" value="${escapeAttr(pendingRecoveryKey)}" readonly tabindex="-1" aria-hidden="true" />
           </form>
@@ -262,16 +262,14 @@ export function createSettingsPanel(options: {
         `
             : ''
         }
-        <div class="field">
+        <form id="mls-vault-restore" class="field" autocomplete="on">
           <label for="vaultRestoreKey">Restore from recovery key</label>
-          <form id="mls-vault-restore" class="vault-restore-form" autocomplete="on">
-            <input type="text" name="username" autocomplete="username" value="${VAULT_PM_USERNAME}" class="vault-pm-username" readonly tabindex="-1" aria-hidden="true" />
-            <input type="password" id="vaultRestoreKey" name="password" autocomplete="current-password" placeholder="Paste or autofill recovery key" />
-          </form>
-        </div>
-        <div class="panel-actions">
-          <button type="button" class="btn" id="vaultRestore">Restore</button>
-        </div>
+          <input type="text" name="username" autocomplete="username" value="${VAULT_PM_USERNAME}" class="vault-pm-honeypot" readonly tabindex="-1" aria-hidden="true" />
+          <input type="password" id="vaultRestoreKey" name="password" autocomplete="current-password" placeholder="Paste or autofill recovery key" />
+          <div class="panel-actions">
+            <button type="submit" class="btn" id="vaultRestore">Restore</button>
+          </div>
+        </form>
         <p class="panel-error" id="vaultError">${escapeAttr(vaultStatusError)}</p>
         <p class="panel-note" id="vaultNote">${escapeAttr(vaultStatusNote)}</p>
       </div>
@@ -697,7 +695,6 @@ export function createSettingsPanel(options: {
       })();
     });
 
-    // Prevent restore form from navigating on Enter.
     body.querySelector('#mls-vault-restore')?.addEventListener('submit', (e) => {
       e.preventDefault();
       (body.querySelector('#vaultRestore') as HTMLButtonElement | null)?.click();
