@@ -14,13 +14,14 @@ import {
   loadVaultKey,
   saveVaultKey,
 } from '../../shared/vaultKeyStore';
+import { formatVaultSyncedAt, syncVaultNow } from '../../shared/vaultSync';
 import {
-  formatVaultSyncedAt,
-  saveRecoveryKeyToPasswordManager,
-  VAULT_PM_USERNAME,
-} from '../../shared/vaultPasswordManager';
-import { syncVaultNow } from '../../shared/vaultSync';
-import { downloadYaml, settingsToYaml, yamlToSettings } from '../../shared/yamlConfig';
+  downloadRecoveryKeyFile,
+  downloadYaml,
+  settingsToYaml,
+  yamlToSettings,
+} from '../../shared/yamlConfig';
+import { showAppDialog } from './appDialog';
 import { closeSvg, pencilSvg } from './icons';
 
 export type SettingsPanelApi = {
@@ -246,19 +247,20 @@ export function createSettingsPanel(options: {
             s.vaultEnabled
               ? `
           <p class="panel-note" id="vaultSyncStatus">${escapeAttr(formatVaultSyncedAt(s.vaultUpdatedAt))}</p>
-          <div class="panel-actions">
+          <div class="panel-actions vault-actions">
             <button type="button" class="btn primary" id="vaultSyncNow">Sync now</button>
-            <button type="button" class="btn" id="vaultShowKey">Show recovery key</button>
+            <button type="button" class="btn" id="vaultShowKey">Show key</button>
+            ${
+              vaultRestoreOpen
+                ? ''
+                : `<button type="button" class="btn" id="vaultShowRestore">Restore</button>`
+            }
             <button type="button" class="btn" id="vaultDisable">Disable</button>
-            <button type="button" class="btn danger-btn" id="vaultDeleteRemote">Delete remote backup</button>
-          </div>
-          <div class="field-row">
-            <label for="vaultDisableDeleteRemote">Also delete remote when disabling</label>
-            <input type="checkbox" id="vaultDisableDeleteRemote" />
+            <button type="button" class="btn danger-btn" id="vaultDeleteRemote">Delete remote</button>
           </div>
           `
               : `
-          <div class="panel-actions">
+          <div class="panel-actions vault-actions">
             <button type="button" class="btn primary" id="vaultEnable">Enable Safe backup</button>
             ${
               vaultRestoreOpen
@@ -269,44 +271,32 @@ export function createSettingsPanel(options: {
           `
           }
           ${
-            s.vaultEnabled && !vaultRestoreOpen
-              ? `
-          <div class="panel-actions">
-            <button type="button" class="btn" id="vaultShowRestore">Restore</button>
-          </div>
-          `
-              : ''
-          }
-          ${
             pendingRecoveryKey
               ? `
-          <form id="mls-vault-pm" class="field vault-pm-save" method="post" action="#" autocomplete="on">
-            <p class="panel-note">Save this recovery key now. Username is fixed; password is the key.</p>
-            <label for="vaultPmUsername">Username</label>
-            <input type="text" id="vaultPmUsername" name="username" autocomplete="username" value="${VAULT_PM_USERNAME}" readonly />
-            <label for="vaultPmPassword">Recovery key</label>
-            <input type="password" id="vaultPmPassword" name="password" autocomplete="new-password" value="${escapeAttr(pendingRecoveryKey)}" />
-            <div class="panel-actions">
-              <button type="submit" class="btn primary" id="vaultSavePm">Save in password manager</button>
+          <div class="field">
+            <label for="vaultRecoveryKeyDisplay">Recovery key — save this file</label>
+            <input type="text" id="vaultRecoveryKeyDisplay" readonly value="${escapeAttr(pendingRecoveryKey)}" />
+            <p class="panel-note">Download the key file and keep it somewhere safe. Anyone with this key can restore your backup.</p>
+            <div class="panel-actions vault-actions">
+              <button type="button" class="btn primary" id="vaultDownloadKey">Download key file</button>
               <button type="button" class="btn" id="vaultCopyKey">Copy key</button>
-              <button type="button" class="btn" id="vaultKeySaved">I've saved my key</button>
+              <button type="button" class="btn" id="vaultKeySaved">Done</button>
             </div>
-          </form>
+          </div>
           `
               : ''
           }
           ${
             vaultRestoreOpen
               ? `
-          <form id="mls-vault-restore" class="field" autocomplete="on">
+          <div class="field">
             <label for="vaultRestoreKey">Recovery key</label>
-            <input type="text" name="username" autocomplete="username" value="${VAULT_PM_USERNAME}" class="vault-pm-honeypot" readonly tabindex="-1" aria-hidden="true" />
-            <input type="password" id="vaultRestoreKey" name="password" autocomplete="current-password" placeholder="Paste or autofill recovery key" />
-            <div class="panel-actions">
-              <button type="submit" class="btn primary" id="vaultRestore">Restore backup</button>
+            <input type="text" id="vaultRestoreKey" autocomplete="off" spellcheck="false" placeholder="Paste recovery key or contents of key file" />
+            <div class="panel-actions vault-actions">
+              <button type="button" class="btn primary" id="vaultRestore">Restore backup</button>
               <button type="button" class="btn" id="vaultCancelRestore">Cancel</button>
             </div>
-          </form>
+          </div>
           `
               : ''
           }
@@ -405,7 +395,13 @@ export function createSettingsPanel(options: {
         errorEl.textContent = 'Keep at least one provider.';
         return;
       }
-      if (!confirm(`Delete ${draft.name}?`)) return;
+      const ok = await showAppDialog({
+        title: `Delete ${draft.name}?`,
+        body: 'This removes the search provider from your list.',
+        confirmLabel: 'Delete',
+        danger: true,
+      });
+      if (ok !== 'confirm') return;
       const providers = settings.providers.filter((p) => p.id !== draft.id);
       await commitProviders(providers);
       dismiss();
@@ -489,7 +485,13 @@ export function createSettingsPanel(options: {
   }
 
   async function resetSearchProviders(): Promise<void> {
-    if (!confirm('Reset search providers and bangs to defaults?')) return;
+    const ok = await showAppDialog({
+      title: 'Reset search providers?',
+      body: 'Search providers and bangs will be restored to defaults.',
+      confirmLabel: 'Reset',
+      danger: true,
+    });
+    if (ok !== 'confirm') return;
     const providers = DEFAULT_PROVIDERS.map((p) => ({ ...p }));
     await commitProviders(providers, {
       enabledProviderIds: providers.map((p) => p.id),
@@ -500,9 +502,13 @@ export function createSettingsPanel(options: {
   }
 
   async function resetToDefaults(): Promise<void> {
-    if (!confirm('Reset all settings, branding, providers, and shortcuts to defaults?')) {
-      return;
-    }
+    const ok = await showAppDialog({
+      title: 'Reset all settings?',
+      body: 'Branding, providers, shortcuts, and Safe backup on this device will be reset to defaults. Remote backup is not deleted.',
+      confirmLabel: 'Reset',
+      danger: true,
+    });
+    if (ok !== 'confirm') return;
     const next = createDefaultSettings();
     pendingRecoveryKey = null;
     vaultRestoreOpen = false;
@@ -513,6 +519,27 @@ export function createSettingsPanel(options: {
     settings = next;
     await options.onChange(next);
     render();
+  }
+
+  async function clearLocalVaultState(message: string): Promise<void> {
+    await clearVaultKey();
+    pendingRecoveryKey = null;
+    vaultRestoreOpen = false;
+    await patchSettings({
+      vaultEnabled: false,
+      vaultSyncId: '',
+      vaultUpdatedAt: 0,
+    });
+    setVaultFeedback(message);
+  }
+
+  function parseRecoveryKeyInput(raw: string): string {
+    const lines = raw
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith('My Little Space') && !l.startsWith('Keep this'));
+    const keyLine = lines.find((l) => l.startsWith('mls_')) ?? lines[lines.length - 1] ?? '';
+    return keyLine.trim();
   }
 
   function setVaultFeedback(note: string, error = ''): void {
@@ -596,6 +623,12 @@ export function createSettingsPanel(options: {
       })();
     });
 
+    body.querySelector('#vaultDownloadKey')?.addEventListener('click', () => {
+      if (!pendingRecoveryKey) return;
+      downloadRecoveryKeyFile(pendingRecoveryKey);
+      setVaultFeedback('Recovery key file downloaded. Store it somewhere safe.');
+    });
+
     body.querySelector('#vaultCopyKey')?.addEventListener('click', () => {
       void (async () => {
         if (!pendingRecoveryKey) return;
@@ -608,36 +641,6 @@ export function createSettingsPanel(options: {
       })();
     });
 
-    const runPasswordManagerSave = () => {
-      void (async () => {
-        if (!pendingRecoveryKey) return;
-        const form = body.querySelector('#mls-vault-pm') as HTMLFormElement | null;
-        const result = await saveRecoveryKeyToPasswordManager(pendingRecoveryKey, form);
-        if (result === 'stored') {
-          setVaultFeedback('Recovery key saved in the password manager.');
-        } else if (result === 'dismissed') {
-          setVaultFeedback('Password manager prompt closed without saving.');
-        } else {
-          try {
-            await navigator.clipboard.writeText(pendingRecoveryKey);
-            setVaultFeedback(
-              'Browser did not offer a save prompt here. Key copied — paste it into your password manager (username: my-little-space-vault).',
-            );
-          } catch {
-            setVaultFeedback(
-              '',
-              'Browser did not offer a save prompt. Copy the key and save it in your password manager manually.',
-            );
-          }
-        }
-      })();
-    };
-
-    body.querySelector('#mls-vault-pm')?.addEventListener('submit', (e) => {
-      e.preventDefault();
-      runPasswordManagerSave();
-    });
-
     body.querySelector('#vaultKeySaved')?.addEventListener('click', () => {
       pendingRecoveryKey = null;
       setVaultFeedback('Recovery key hidden. It stays remembered on this device.');
@@ -647,13 +650,30 @@ export function createSettingsPanel(options: {
     body.querySelector('#vaultDisable')?.addEventListener('click', () => {
       void (async () => {
         if (!settings) return;
-        if (!confirm('Disable Safe backup on this device? Local settings stay.')) return;
-        const alsoDelete = (
-          body.querySelector('#vaultDisableDeleteRemote') as HTMLInputElement | null
-        )?.checked;
+        const choice = await showAppDialog({
+          title: 'Disable Safe backup?',
+          body: 'Local settings stay. Choose what happens to the remote backup.',
+          choices: [
+            {
+              id: 'keep-remote',
+              label: 'Disable here, keep remote backup',
+              kind: 'choice',
+              primary: true,
+            },
+            {
+              id: 'delete-remote',
+              label: 'Disable and delete remote backup',
+              kind: 'choice',
+              danger: true,
+            },
+            { id: 'cancel', label: 'Cancel', kind: 'footer' },
+          ],
+        });
+        if (!choice) return;
+
         const syncId = settings.vaultSyncId;
         const serviceUrl = resolveMetaServiceUrl(settings.metaServiceUrl);
-        if (alsoDelete && syncId && serviceUrl) {
+        if (choice === 'delete-remote' && syncId && serviceUrl) {
           try {
             await deleteVault(serviceUrl, syncId);
           } catch (err) {
@@ -664,17 +684,10 @@ export function createSettingsPanel(options: {
             return;
           }
         }
-        await clearVaultKey();
-        pendingRecoveryKey = null;
-        await patchSettings({
-          vaultEnabled: false,
-          vaultSyncId: '',
-          vaultUpdatedAt: 0,
-        });
-        setVaultFeedback(
-          alsoDelete
+        await clearLocalVaultState(
+          choice === 'delete-remote'
             ? 'Safe backup disabled and remote backup deleted.'
-            : 'Safe backup disabled. Remote backup kept (restore with your key anytime).',
+            : 'Safe backup disabled. Remote backup kept — restore with your key anytime.',
         );
       })();
     });
@@ -682,17 +695,51 @@ export function createSettingsPanel(options: {
     body.querySelector('#vaultDeleteRemote')?.addEventListener('click', () => {
       void (async () => {
         if (!settings?.vaultSyncId) return;
-        if (!confirm('Permanently delete the remote encrypted backup?')) return;
+        const choice = await showAppDialog({
+          title: 'Delete remote backup?',
+          body: 'This removes the encrypted blob on the helper. Choose whether to keep sync on this device.',
+          choices: [
+            {
+              id: 'remote-only',
+              label: 'Delete remote, keep sync on',
+              kind: 'choice',
+              primary: true,
+            },
+            {
+              id: 'remote-and-local',
+              label: 'Delete remote, disable and remove key',
+              kind: 'choice',
+              danger: true,
+            },
+            { id: 'cancel', label: 'Cancel', kind: 'footer' },
+          ],
+        });
+        if (!choice) return;
+
         const serviceUrl = resolveMetaServiceUrl(settings.metaServiceUrl);
         try {
           await deleteVault(serviceUrl, settings.vaultSyncId);
-          setVaultFeedback('Remote backup deleted.');
         } catch (err) {
           setVaultFeedback(
             '',
             err instanceof Error ? err.message : 'Could not delete remote backup',
           );
+          return;
         }
+
+        if (choice === 'remote-and-local') {
+          await clearLocalVaultState(
+            'Remote backup deleted. Safe backup disabled and key removed on this device.',
+          );
+          return;
+        }
+
+        // Keep sync on — next sync recreates the remote blob.
+        setVaultFeedback(
+          'Remote backup deleted. Sync stays on — Sync now will upload a new backup.',
+        );
+        const status = body.querySelector('#vaultSyncStatus');
+        if (status) status.textContent = 'Remote deleted — sync still enabled';
       })();
     });
 
@@ -711,22 +758,23 @@ export function createSettingsPanel(options: {
       render();
     });
 
-    const runRestore = () => {
+    body.querySelector('#vaultRestore')?.addEventListener('click', () => {
       void (async () => {
         if (!settings) return;
         const input = body.querySelector('#vaultRestoreKey') as HTMLInputElement | null;
-        const key = (input?.value || '').trim();
+        const key = parseRecoveryKeyInput(input?.value || '');
         if (!key) {
           setVaultFeedback('', 'Enter your recovery key to restore.');
           return;
         }
-        if (
-          !confirm(
-            'Replace all local settings with the encrypted backup for this key?',
-          )
-        ) {
-          return;
-        }
+        const ok = await showAppDialog({
+          title: 'Restore from Safe backup?',
+          body: 'This replaces all local settings with the encrypted backup for this key.',
+          confirmLabel: 'Restore',
+          danger: true,
+        });
+        if (ok !== 'confirm') return;
+
         setVaultFeedback('Restoring…');
         try {
           const syncId = await syncIdFromKey(key);
@@ -755,16 +803,6 @@ export function createSettingsPanel(options: {
           );
         }
       })();
-    };
-
-    body.querySelector('#vaultRestore')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      runRestore();
-    });
-
-    body.querySelector('#mls-vault-restore')?.addEventListener('submit', (e) => {
-      e.preventDefault();
-      runRestore();
     });
   }
 
@@ -924,7 +962,13 @@ export function createSettingsPanel(options: {
         noteEl.textContent = '';
         return;
       }
-      if (!confirm('Replace all current settings and shortcuts with this YAML?')) return;
+      const ok = await showAppDialog({
+        title: 'Import YAML?',
+        body: 'This replaces all current settings and shortcuts with the imported file.',
+        confirmLabel: 'Import',
+        danger: true,
+      });
+      if (ok !== 'confirm') return;
       await options.onImport(result.settings);
       settings = result.settings;
       applyTheme(result.settings.theme);

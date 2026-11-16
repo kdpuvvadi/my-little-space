@@ -1583,8 +1583,18 @@ a {
 .panel-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.5rem;
   margin-top: 0.5rem;
+}
+
+.panel-actions.vault-actions {
+  width: 100%;
+}
+
+.panel-actions.vault-actions .btn {
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .btn {
@@ -1623,29 +1633,29 @@ a {
   margin: 0.35rem 0 0;
 }
 
-/* Restore-only: keep username in the form for autofill, hide visually. */
-.vault-pm-honeypot {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-.vault-pm-save label {
-  margin-top: 0.35rem;
-}
-
-.vault-pm-save label:first-of-type {
-  margin-top: 0;
-}
-
 .field .panel-actions {
   margin-top: 0.15rem;
+}
+
+.dialog-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+}
+
+.dialog-choice-btn {
+  width: 100%;
+  height: auto;
+  min-height: 36px;
+  padding: 0.55rem 0.9rem;
+  white-space: normal;
+  text-align: center;
+  border-radius: 12px;
+}
+
+.app-dialog-body {
+  margin-top: 0.35rem;
 }
 
 /* Modal dialogs */

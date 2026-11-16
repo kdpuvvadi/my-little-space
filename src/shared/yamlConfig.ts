@@ -208,12 +208,32 @@ export function yamlToSettings(text: string): YamlImportResult {
   return { ok: true, settings, warnings };
 }
 
-export function downloadYaml(filename: string, content: string): void {
-  const blob = new Blob([content], { type: 'text/yaml;charset=utf-8' });
+export function downloadTextFile(
+  filename: string,
+  content: string,
+  mime = 'text/plain;charset=utf-8',
+): void {
+  const blob = new Blob([content], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+export function downloadYaml(filename: string, content: string): void {
+  downloadTextFile(filename, content, 'text/yaml;charset=utf-8');
+}
+
+/** Plain recovery-key file for Safe backup. */
+export function downloadRecoveryKeyFile(recoveryKey: string): void {
+  const body = [
+    'My Little Space — Safe backup recovery key',
+    'Keep this file private. Anyone with this key can restore your encrypted backup.',
+    '',
+    recoveryKey.trim(),
+    '',
+  ].join('\n');
+  downloadTextFile('my-little-space-recovery-key.txt', body);
 }

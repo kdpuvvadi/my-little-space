@@ -7,6 +7,15 @@ import type { Settings } from './types';
 export const VAULT_STALE_MS = 15 * 60 * 1000;
 export const VAULT_SYNC_DEBOUNCE_MS = 2000;
 
+export function formatVaultSyncedAt(updatedAt: number): string {
+  if (!updatedAt) return 'Never synced';
+  try {
+    return `Last synced ${new Date(updatedAt).toLocaleString()}`;
+  } catch {
+    return 'Last synced recently';
+  }
+}
+
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 let inFlight: Promise<VaultSyncOutcome> | null = null;
 
