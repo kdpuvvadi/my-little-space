@@ -39,6 +39,13 @@ export function createQuickNote(options: {
   let timer: ReturnType<typeof setTimeout> | null = null;
   let lastEmitted = '';
 
+  const onDocPointerDown = (e: Event) => {
+    if (!root.classList.contains('is-expanded')) return;
+    const target = e.target as Node | null;
+    if (target && root.contains(target)) return;
+    setExpanded(false);
+  };
+
   const setExpanded = (open: boolean) => {
     root.classList.toggle('is-expanded', open);
     tab.setAttribute('aria-expanded', String(open));
@@ -48,8 +55,16 @@ export function createQuickNote(options: {
     } catch {
       // ignore
     }
+    document.removeEventListener('pointerdown', onDocPointerDown, true);
     if (open) {
-      requestAnimationFrame(() => input.focus());
+      // Defer so the opening click doesn't immediately collapse.
+      requestAnimationFrame(() => {
+        document.addEventListener('pointerdown', onDocPointerDown, true);
+        input.focus();
+      });
+    } else {
+      if (timer) clearTimeout(timer);
+      emit();
     }
   };
 
