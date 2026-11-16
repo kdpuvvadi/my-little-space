@@ -9,7 +9,7 @@ import {
   downloadDecryptedSettings,
 } from '../../shared/vaultClient';
 import { generateRecoveryKey, syncIdFromKey } from '../../shared/vaultCrypto';
-import { clearVaultKey, saveVaultKey } from '../../shared/vaultKeyStore';
+import { clearVaultKey, loadVaultKey, saveVaultKey } from '../../shared/vaultKeyStore';
 import { formatVaultSyncedAt, syncVaultNow } from '../../shared/vaultSync';
 import {
   downloadRecoveryKeyFile,
@@ -43,8 +43,13 @@ export function createSettingsPanel(options: {
   mount?: HTMLElement;
 }): SettingsPanelApi {
   let settings: Settings | null = null;
-  /** Shown once after enable until the user confirms they saved it. */
+  /** Recovery key held only during first-time setup (cleared after ack). */
   let pendingRecoveryKey: string | null = null;
+  /**
+   * First-time key setup:
+   * save → show key + download; confirm → re-enter key; ack → I've saved it → hide.
+   */
+  let vaultKeySetupStep: 'save' | 'confirm' | 'ack' | null = null;
   /** Restore key form is hidden until the user chooses Restore. */
   let vaultRestoreOpen = false;
   let advancedOpen = false;
@@ -219,7 +224,7 @@ export function createSettingsPanel(options: {
       </div>
 
       <details class="advanced-group"${
-        advancedOpen || vaultRestoreOpen || Boolean(pendingRecoveryKey) ? ' open' : ''
+        advancedOpen || vaultRestoreOpen || Boolean(vaultKeySetupStep) ? ' open' : ''
       }>
         <summary>Advanced</summary>
         <div class="field">
@@ -266,16 +271,46 @@ export function createSettingsPanel(options: {
           `
           }
           ${
-            pendingRecoveryKey && !s.vaultKeySaved
+            pendingRecoveryKey && !s.vaultKeySaved && vaultKeySetupStep === 'save'
               ? `
-          <div class="field">
-            <label for="vaultRecoveryKeyDisplay">Recovery key — save this once</label>
+          <div class="field vault-key-setup">
+            <p class="panel-note"><strong>Step 1 of 3</strong> — Save your recovery key</p>
+            <label for="vaultRecoveryKeyDisplay">Recovery key</label>
             <input type="text" id="vaultRecoveryKeyDisplay" readonly value="${escapeAttr(pendingRecoveryKey)}" />
-            <p class="panel-note">Download the key file now. It will not be shown again after you save it.</p>
+            <p class="panel-note">Download or copy this key and store it somewhere safe. You will need to enter it next to confirm.</p>
             <div class="panel-actions vault-actions">
               <button type="button" class="btn primary" id="vaultDownloadKey">Download key file</button>
               <button type="button" class="btn" id="vaultCopyKey">Copy key</button>
-              <button type="button" class="btn" id="vaultKeySaved">I've saved it</button>
+              <button type="button" class="btn" id="vaultKeyContinue">Continue</button>
+            </div>
+          </div>
+          `
+              : ''
+          }
+          ${
+            pendingRecoveryKey && !s.vaultKeySaved && vaultKeySetupStep === 'confirm'
+              ? `
+          <div class="field vault-key-setup">
+            <p class="panel-note"><strong>Step 2 of 3</strong> — Confirm your recovery key</p>
+            <label for="vaultKeyConfirmInput">Enter the recovery key you just saved</label>
+            <input type="text" id="vaultKeyConfirmInput" autocomplete="off" spellcheck="false" placeholder="Paste recovery key" />
+            <p class="panel-note">The key is no longer shown above. Paste it from your saved file or clipboard.</p>
+            <div class="panel-actions vault-actions">
+              <button type="button" class="btn primary" id="vaultKeyConfirm">Confirm key</button>
+              <button type="button" class="btn" id="vaultKeyBackToSave">Back</button>
+            </div>
+          </div>
+          `
+              : ''
+          }
+          ${
+            pendingRecoveryKey && !s.vaultKeySaved && vaultKeySetupStep === 'ack'
+              ? `
+          <div class="field vault-key-setup">
+            <p class="panel-note"><strong>Step 3 of 3</strong> — Key confirmed</p>
+            <p class="panel-note">Your recovery key matches. It will be hidden after you confirm you have saved it.</p>
+            <div class="panel-actions vault-actions">
+              <button type="button" class="btn primary" id="vaultKeySaved">I've saved the key</button>
             </div>
           </div>
           `
@@ -506,6 +541,7 @@ export function createSettingsPanel(options: {
     if (ok !== 'confirm') return;
     const next = createDefaultSettings();
     pendingRecoveryKey = null;
+    vaultKeySetupStep = null;
     vaultRestoreOpen = false;
     vaultStatusNote = '';
     vaultStatusError = '';
@@ -519,6 +555,7 @@ export function createSettingsPanel(options: {
   async function clearLocalVaultState(message: string): Promise<void> {
     await clearVaultKey();
     pendingRecoveryKey = null;
+    vaultKeySetupStep = null;
     vaultRestoreOpen = false;
     await patchSettings({
       vaultEnabled: false,
@@ -531,6 +568,7 @@ export function createSettingsPanel(options: {
 
   async function markVaultKeySaved(note: string): Promise<void> {
     pendingRecoveryKey = null;
+    vaultKeySetupStep = null;
     if (!settings) return;
     const next = { ...settings, vaultKeySaved: true };
     settings = next;
@@ -575,18 +613,19 @@ export function createSettingsPanel(options: {
           };
           settings = next;
           pendingRecoveryKey = key;
+          vaultKeySetupStep = 'save';
           await options.onChange(next);
           const outcome = await syncVaultNow(next);
           if (outcome.ok) {
             settings = { ...next, vaultUpdatedAt: outcome.updatedAt };
-            setVaultFeedback('Safe backup enabled. Download your recovery key now — it will not be shown again.');
+            setVaultFeedback('Safe backup enabled. Save your recovery key to continue.');
           } else if (!outcome.skipped) {
             setVaultFeedback(
-              'Enabled locally, but first sync failed. Download your key now — it will not be shown again.',
+              'Enabled locally, but first sync failed. Save your recovery key to continue.',
               outcome.error,
             );
           } else {
-            setVaultFeedback('Safe backup enabled. Download your recovery key now — it will not be shown again.');
+            setVaultFeedback('Safe backup enabled. Save your recovery key to continue.');
           }
           render();
         } catch (err) {
@@ -615,13 +654,9 @@ export function createSettingsPanel(options: {
     });
 
     body.querySelector('#vaultDownloadKey')?.addEventListener('click', () => {
-      void (async () => {
-        if (!pendingRecoveryKey) return;
-        downloadRecoveryKeyFile(pendingRecoveryKey);
-        await markVaultKeySaved(
-          'Recovery key file downloaded. It will not be shown again on this device.',
-        );
-      })();
+      if (!pendingRecoveryKey) return;
+      downloadRecoveryKeyFile(pendingRecoveryKey);
+      setVaultFeedback('Key file downloaded. Click Continue when you have saved it.');
     });
 
     body.querySelector('#vaultCopyKey')?.addEventListener('click', () => {
@@ -629,18 +664,70 @@ export function createSettingsPanel(options: {
         if (!pendingRecoveryKey) return;
         try {
           await navigator.clipboard.writeText(pendingRecoveryKey);
-          setVaultFeedback('Recovery key copied. Save it now — use “I’ve saved it” when done.');
+          setVaultFeedback('Key copied. Click Continue when you have saved it.');
         } catch {
           setVaultFeedback('', 'Could not copy — select and copy manually.');
         }
       })();
     });
 
+    body.querySelector('#vaultKeyContinue')?.addEventListener('click', () => {
+      vaultKeySetupStep = 'confirm';
+      setVaultFeedback('Enter the recovery key you saved to confirm.');
+      render();
+    });
+
+    body.querySelector('#vaultKeyBackToSave')?.addEventListener('click', () => {
+      vaultKeySetupStep = 'save';
+      setVaultFeedback('Save your recovery key, then continue.');
+      render();
+    });
+
+    body.querySelector('#vaultKeyConfirm')?.addEventListener('click', () => {
+      if (!pendingRecoveryKey) return;
+      const input = body.querySelector('#vaultKeyConfirmInput') as HTMLInputElement | null;
+      const entered = parseRecoveryKeyInput(input?.value || '');
+      if (!entered) {
+        setVaultFeedback('', 'Paste your recovery key to confirm.');
+        return;
+      }
+      if (entered !== pendingRecoveryKey) {
+        setVaultFeedback('', 'That key does not match. Check your saved file and try again.');
+        return;
+      }
+      vaultKeySetupStep = 'ack';
+      setVaultFeedback('Key confirmed.');
+      render();
+    });
+
+    body.querySelector('#vaultKeyConfirmInput')?.addEventListener('keydown', (e) => {
+      if ((e as KeyboardEvent).key === 'Enter') {
+        e.preventDefault();
+        (body.querySelector('#vaultKeyConfirm') as HTMLButtonElement | null)?.click();
+      }
+    });
+
     body.querySelector('#vaultKeySaved')?.addEventListener('click', () => {
       void markVaultKeySaved(
-        'Recovery key hidden permanently on this device. Use your saved file to restore elsewhere.',
+        'Recovery key hidden. Use your saved file to restore on other devices.',
       );
     });
+
+    // Resume incomplete key setup after reload (key not yet acknowledged).
+    if (
+      settings?.vaultEnabled &&
+      !settings.vaultKeySaved &&
+      !pendingRecoveryKey &&
+      !vaultKeySetupStep
+    ) {
+      void loadVaultKey().then((key) => {
+        if (!key || !settings || settings.vaultKeySaved) return;
+        pendingRecoveryKey = key;
+        vaultKeySetupStep = 'save';
+        setVaultFeedback('Finish saving your recovery key to continue.');
+        render();
+      });
+    }
 
     body.querySelector('#vaultDisable')?.addEventListener('click', () => {
       void (async () => {
@@ -786,6 +873,7 @@ export function createSettingsPanel(options: {
             vaultKeySaved: true,
           };
           pendingRecoveryKey = null;
+          vaultKeySetupStep = null;
           vaultRestoreOpen = false;
           settings = next;
           applyTheme(next.theme);

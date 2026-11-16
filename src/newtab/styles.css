@@ -1637,6 +1637,11 @@ a {
   margin-top: 0.15rem;
 }
 
+.vault-key-setup .panel-note strong {
+  color: var(--text, inherit);
+  font-weight: 650;
+}
+
 .dialog-choices {
   display: flex;
   flex-direction: column;
