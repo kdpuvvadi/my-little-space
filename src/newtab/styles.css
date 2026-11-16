@@ -506,6 +506,183 @@ a {
   font-weight: 600;
 }
 
+.quick-note-rail {
+  position: fixed;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 35;
+  display: flex;
+  align-items: stretch;
+  pointer-events: none;
+}
+
+.quick-note-rail > * {
+  pointer-events: auto;
+}
+
+.quick-note-tab {
+  /* No rotate — that was flipping border-radius onto the screen edge. */
+  writing-mode: vertical-lr;
+  text-orientation: upright;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: auto;
+  min-height: 5.5rem;
+  padding: 0.85rem 0.45rem;
+  border-radius: 0 12px 12px 0;
+  border: 1px solid var(--panel-border);
+  border-left: 0;
+  background: var(--panel-bg);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  box-shadow: 4px 0 14px rgba(48, 59, 51, 0.08);
+}
+
+.quick-note-rail.has-content .quick-note-tab {
+  color: var(--accent);
+}
+
+.quick-note-rail.is-expanded .quick-note-tab {
+  visibility: hidden;
+  pointer-events: none;
+  width: 0;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  overflow: hidden;
+}
+
+.quick-note-panel {
+  width: min(280px, calc(100vw - 1rem));
+  max-height: min(70vh, 420px);
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.7rem 0.75rem 0.8rem 0.85rem;
+  border-radius: 0 14px 14px 0;
+  border: 1px solid var(--panel-border);
+  border-left: none;
+  background: var(--panel-bg);
+  box-shadow: 6px 0 18px rgba(48, 59, 51, 0.08);
+  transform: translateX(0);
+}
+
+.quick-note-panel.is-opening {
+  animation: quick-note-slide-in 0.2s ease-out;
+}
+
+.quick-note-panel.is-closing {
+  animation: quick-note-slide-out 0.2s ease-out forwards;
+  pointer-events: none;
+}
+
+.quick-note-panel[hidden] {
+  display: none !important;
+}
+
+@keyframes quick-note-slide-in {
+  from {
+    transform: translateX(-100%);
+    opacity: 0.85;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes quick-note-slide-out {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(-100%);
+    opacity: 0.85;
+  }
+}
+
+.quick-note-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 28px;
+}
+
+.quick-note-panel-title {
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+  font-weight: 650;
+  line-height: 1;
+}
+
+.quick-note-collapse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid var(--panel-border);
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 1.15rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.quick-note-collapse span {
+  display: block;
+  translate: -0.5px -0.5px;
+}
+
+.quick-note-collapse:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.quick-note-input {
+  flex: 1;
+  width: 100%;
+  min-height: 10rem;
+  resize: none;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  outline: none;
+}
+
+.quick-note-input:focus {
+  border-color: var(--accent);
+}
+
+@media (max-width: 720px) {
+  .quick-note-panel {
+    width: min(240px, calc(100vw - 0.75rem));
+    max-height: min(55vh, 320px);
+  }
+}
+
+html[data-theme='dark'] .quick-note-tab,
+html[data-theme='dark'] .quick-note-panel {
+  box-shadow: 6px 0 18px rgba(0, 0, 0, 0.35);
+}
+
 .shortcuts-section {
   margin: 3rem auto 0;
   width: min(720px, 100%);
@@ -1248,14 +1425,37 @@ a {
 
 .shortcut-actions {
   position: absolute;
-  top: -6px;
-  right: -6px;
+  top: -8px;
+  right: -10px;
   display: none;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 2px;
+  max-width: 52px;
 }
 
 .shortcut-item.editing .shortcut-actions {
   display: flex;
+}
+
+.shortcut-item.is-hidden {
+  opacity: 0.45;
+}
+
+.shortcut-item.is-hidden .shortcut-label::after {
+  content: ' (hidden)';
+  font-size: 0.65em;
+  color: var(--muted);
+}
+
+.pin-badge {
+  position: absolute;
+  top: -4px;
+  left: -2px;
+  font-size: 0.7rem;
+  color: var(--accent);
+  line-height: 1;
+  pointer-events: none;
 }
 
 .icon-btn {
@@ -1305,9 +1505,23 @@ a {
   gap: 1rem;
 }
 
+.footer-start {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
 .footer-tagline {
   color: var(--muted);
   font-size: 0.92rem;
+}
+
+.vault-sync-badge {
+  margin: 0;
+  color: var(--muted-2);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
 }
 
 .customize-btn {

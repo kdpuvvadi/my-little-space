@@ -236,7 +236,11 @@ export function createSettingsPanel(options: {
           ${
             s.vaultEnabled
               ? `
-          <p class="panel-note" id="vaultSyncStatus">${escapeAttr(formatVaultSyncedAt(s.vaultUpdatedAt))}</p>
+          <p class="panel-note" id="vaultSyncStatus">${escapeAttr(
+            s.vaultUpdatedAt
+              ? formatVaultSyncedAt(s.vaultUpdatedAt)
+              : 'Last synced: never on this device',
+          )}</p>
           <div class="panel-actions vault-actions">
             <button type="button" class="btn primary" id="vaultSyncNow">Sync now</button>
             <button type="button" class="btn" id="vaultDisable">Disable</button>

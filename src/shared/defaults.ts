@@ -70,6 +70,7 @@ export function createDefaultShortcuts(): Shortcut[] {
       iconUrl: meta.iconUrl,
       metaFetchedAt: 0,
       iconCustom: false,
+      openInNewTab: false,
     };
   });
 }
@@ -90,6 +91,9 @@ export function createDefaultSettings(): Settings {
     shortcuts,
     groups: [],
     homeOrder: shortcuts.map((s) => s.id),
+    pinnedHomeIds: [],
+    hiddenHomeIds: [],
+    quickNote: '',
     branding: { ...DEFAULT_BRANDING },
     vaultEnabled: false,
     vaultSyncId: '',

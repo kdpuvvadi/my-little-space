@@ -4,15 +4,20 @@ import {
   addShortcutToGroup,
   deleteGroup,
   newGroup,
+  normalizeHomeFlags,
   normalizeHomeOrder,
+  orderedHomeIds,
   removeShortcutFromGroup,
+  shortcutsInGroup,
 } from '../shared/groups';
-import { fetchSiteMeta, isMetaExpired } from '../shared/siteMetaClient';
+import { openShortcutUrl } from '../shared/shortcuts';
+import { fetchSiteMeta } from '../shared/siteMetaClient';
 import { loadSettings, saveSettings, updateSettings } from '../shared/storage';
 import { applyTheme, watchSystemTheme } from '../shared/theme';
 import type { Settings, Shortcut, ShortcutGroup, ThemeMode } from '../shared/types';
-import { maybeStaleVaultSync } from '../shared/vaultSync';
+import { formatVaultSyncBadge, maybeStaleVaultSync } from '../shared/vaultSync';
 import { logoSvg, moonSvg, slidersSvg, sunSvg, systemSvg } from './ui/icons';
+import { createQuickNote } from './ui/quickNote';
 import { createSearchBar } from './ui/searchBar';
 import { createSettingsPanel } from './ui/settingsPanel';
 import { createShortcutModal } from './ui/shortcutModal';
@@ -23,6 +28,8 @@ type ShortcutsDraft = {
   shortcuts: Shortcut[];
   groups: ShortcutGroup[];
   homeOrder: string[];
+  pinnedHomeIds: string[];
+  hiddenHomeIds: string[];
 };
 
 function formatDate(date: Date): string {
@@ -65,6 +72,7 @@ function renderShell(app: HTMLElement): {
   catFactBtn: HTMLButtonElement;
   catFactEl: HTMLElement;
   footerTaglineEl: HTMLElement;
+  vaultBadgeEl: HTMLElement;
   customizeBtn: HTMLButtonElement;
   mainColumn: HTMLElement;
 } {
@@ -104,7 +112,10 @@ function renderShell(app: HTMLElement): {
       </div>
       <div class="main-column"></div>
       <footer class="footer">
-        <div class="footer-tagline"></div>
+        <div class="footer-start">
+          <div class="footer-tagline"></div>
+          <p class="vault-sync-badge hidden" aria-live="polite"></p>
+        </div>
         <button type="button" class="customize-btn">
           ${slidersSvg}
           <span class="customize-label"></span>
@@ -122,9 +133,18 @@ function renderShell(app: HTMLElement): {
     catFactBtn: app.querySelector('.cat-fact-btn') as HTMLButtonElement,
     catFactEl: app.querySelector('.cat-fact') as HTMLElement,
     footerTaglineEl: app.querySelector('.footer-tagline') as HTMLElement,
+    vaultBadgeEl: app.querySelector('.vault-sync-badge') as HTMLElement,
     customizeBtn: app.querySelector('.customize-btn') as HTMLButtonElement,
     mainColumn: app.querySelector('.main-column') as HTMLElement,
   };
+}
+
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  if (target.isContentEditable) return true;
+  return Boolean(target.closest('input, textarea, select, [contenteditable="true"]'));
 }
 
 function wireCatFact(els: ReturnType<typeof renderShell>): void {
@@ -205,21 +225,42 @@ function applyBranding(
   label.textContent = branding.customizeLabel;
   document.title = branding.brandName || 'New Tab';
   syncThemeButtons(els, settings.theme);
+
+  if (settings.vaultEnabled) {
+    els.vaultBadgeEl.textContent = formatVaultSyncBadge(settings.vaultUpdatedAt);
+    els.vaultBadgeEl.classList.remove('hidden');
+    els.vaultBadgeEl.title = settings.vaultUpdatedAt
+      ? new Date(settings.vaultUpdatedAt).toLocaleString()
+      : 'Safe backup is on — not synced yet';
+  } else {
+    els.vaultBadgeEl.textContent = '';
+    els.vaultBadgeEl.classList.add('hidden');
+    els.vaultBadgeEl.removeAttribute('title');
+  }
 }
 
 function cloneDraft(from: {
   shortcuts: Shortcut[];
   groups: ShortcutGroup[];
   homeOrder: string[];
+  pinnedHomeIds: string[];
+  hiddenHomeIds: string[];
 }): ShortcutsDraft {
+  const homeOrder = [...from.homeOrder];
   return {
     shortcuts: from.shortcuts.map((s) => ({ ...s })),
     groups: from.groups.map((g) => ({
       ...g,
       shortcutIds: [...g.shortcutIds],
     })),
-    homeOrder: [...from.homeOrder],
+    homeOrder,
+    pinnedHomeIds: [...from.pinnedHomeIds],
+    hiddenHomeIds: [...from.hiddenHomeIds],
   };
+}
+
+function toggleId(list: string[], id: string): string[] {
+  return list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
 }
 
 async function main(): Promise<void> {
@@ -243,15 +284,20 @@ async function main(): Promise<void> {
           shortcuts: settings.shortcuts,
           groups: settings.groups,
           homeOrder: settings.homeOrder,
+          pinnedHomeIds: settings.pinnedHomeIds,
+          hiddenHomeIds: settings.hiddenHomeIds,
         };
 
   const viewSettings = (): Settings => {
     const d = activeDraft();
+    const homeOrder = normalizeHomeOrder(d.homeOrder, d.shortcuts, d.groups);
     return {
       ...settings,
       shortcuts: d.shortcuts,
       groups: d.groups,
-      homeOrder: normalizeHomeOrder(d.homeOrder, d.shortcuts, d.groups),
+      homeOrder,
+      pinnedHomeIds: normalizeHomeFlags(d.pinnedHomeIds, homeOrder),
+      hiddenHomeIds: normalizeHomeFlags(d.hiddenHomeIds, homeOrder),
     };
   };
 
@@ -260,10 +306,13 @@ async function main(): Promise<void> {
   };
 
   const setDraft = (next: ShortcutsDraft) => {
+    const homeOrder = normalizeHomeOrder(next.homeOrder, next.shortcuts, next.groups);
     draft = {
       shortcuts: next.shortcuts,
       groups: next.groups,
-      homeOrder: normalizeHomeOrder(next.homeOrder, next.shortcuts, next.groups),
+      homeOrder,
+      pinnedHomeIds: normalizeHomeFlags(next.pinnedHomeIds, homeOrder),
+      hiddenHomeIds: normalizeHomeFlags(next.hiddenHomeIds, homeOrder),
     };
     paintShortcuts();
   };
@@ -281,7 +330,7 @@ async function main(): Promise<void> {
       const d = activeDraft();
       const group = newGroup(title, { accentColor, existing: d.groups });
       setDraft({
-        shortcuts: d.shortcuts,
+        ...d,
         groups: [...d.groups, group],
         homeOrder: [...d.homeOrder, group.id],
       });
@@ -299,10 +348,20 @@ async function main(): Promise<void> {
         normalized.shortcuts,
         normalized.groups,
       );
+      normalized.pinnedHomeIds = normalizeHomeFlags(
+        normalized.pinnedHomeIds,
+        normalized.homeOrder,
+      );
+      normalized.hiddenHomeIds = normalizeHomeFlags(
+        normalized.hiddenHomeIds,
+        normalized.homeOrder,
+      );
       settings = await updateSettings({
         shortcuts: normalized.shortcuts,
         groups: normalized.groups,
         homeOrder: normalized.homeOrder,
+        pinnedHomeIds: normalized.pinnedHomeIds,
+        hiddenHomeIds: normalized.hiddenHomeIds,
       });
       draft = null;
       editingShortcuts = false;
@@ -318,11 +377,11 @@ async function main(): Promise<void> {
       shortcutsGrid.setUpdateBusy(true);
       try {
         const serviceUrl = resolveMetaServiceUrl(settings.metaServiceUrl);
-        const now = Date.now();
         const d = activeDraft();
         const nextShortcuts: Shortcut[] = [];
         for (const sc of d.shortcuts) {
-          if (sc.iconCustom || !isMetaExpired(sc.metaFetchedAt, now)) {
+          // Custom icons are kept; everything else refreshes on demand.
+          if (sc.iconCustom) {
             nextShortcuts.push(sc);
             continue;
           }
@@ -357,6 +416,8 @@ async function main(): Promise<void> {
         shortcuts: d.shortcuts.filter((s) => s.id !== id),
         groups,
         homeOrder: d.homeOrder.filter((hid) => hid !== id),
+        pinnedHomeIds: d.pinnedHomeIds.filter((hid) => hid !== id),
+        hiddenHomeIds: d.hiddenHomeIds.filter((hid) => hid !== id),
       });
     },
     onRenameGroup: (groupId, title) => {
@@ -388,6 +449,8 @@ async function main(): Promise<void> {
         shortcuts: d.shortcuts,
         groups: next.groups,
         homeOrder: next.homeOrder,
+        pinnedHomeIds: d.pinnedHomeIds.filter((id) => id !== groupId),
+        hiddenHomeIds: d.hiddenHomeIds.filter((id) => id !== groupId),
       });
     },
     onReorderHome: (orderedIds) => {
@@ -398,19 +461,33 @@ async function main(): Promise<void> {
       const d = activeDraft();
       const next = addShortcutToGroup(d.groups, d.homeOrder, groupId, shortcutId);
       setDraft({
-        shortcuts: d.shortcuts,
+        ...d,
         groups: next.groups,
         homeOrder: next.homeOrder,
+        pinnedHomeIds: d.pinnedHomeIds.filter((id) => id !== shortcutId),
+        hiddenHomeIds: d.hiddenHomeIds.filter((id) => id !== shortcutId),
       });
     },
     onRemoveFromGroup: (groupId, shortcutId) => {
       const d = activeDraft();
       const next = removeShortcutFromGroup(d.groups, d.homeOrder, groupId, shortcutId);
       setDraft({
-        shortcuts: d.shortcuts,
+        ...d,
         groups: next.groups,
         homeOrder: next.homeOrder,
       });
+    },
+    onTogglePin: (id) => {
+      const d = activeDraft();
+      setDraft({ ...d, pinnedHomeIds: toggleId(d.pinnedHomeIds, id) });
+    },
+    onToggleHide: (id) => {
+      const d = activeDraft();
+      const hiddenHomeIds = toggleId(d.hiddenHomeIds, id);
+      const pinnedHomeIds = hiddenHomeIds.includes(id)
+        ? d.pinnedHomeIds.filter((x) => x !== id)
+        : d.pinnedHomeIds;
+      setDraft({ ...d, hiddenHomeIds, pinnedHomeIds });
     },
   });
 
@@ -431,13 +508,22 @@ async function main(): Promise<void> {
             : [...d.homeOrder, shortcut.id];
 
       if (editingShortcuts) {
-        setDraft({ shortcuts, groups: d.groups, homeOrder });
+        setDraft({ ...d, shortcuts, homeOrder });
         return;
       }
 
       settings = await updateSettings({ shortcuts, homeOrder });
       paintShortcuts();
       settingsPanel.setSettings(settings);
+    },
+  });
+
+  const quickNote = createQuickNote({
+    onChange: (value) => {
+      void updateSettings({ quickNote: value }).then((next) => {
+        settings = next;
+        settingsPanel.setSettings(settings);
+      });
     },
   });
 
@@ -451,6 +537,7 @@ async function main(): Promise<void> {
     if (maybeGoCustomUrl(settings)) return;
     applyBranding(shell, settings);
     searchBar.setSettings(settings);
+    quickNote.setValue(settings.quickNote);
     paintShortcuts();
     settingsPanel.setSettings(settings);
   };
@@ -467,6 +554,7 @@ async function main(): Promise<void> {
   });
 
   shell.mainColumn.append(searchBar.root, shortcutsGrid.root);
+  app.append(quickNote.root);
   shell.customizeBtn.addEventListener('click', () => settingsPanel.open());
   wireCatFact(shell);
 
@@ -480,13 +568,88 @@ async function main(): Promise<void> {
 
   applyBranding(shell, settings);
   searchBar.setSettings(settings);
+  quickNote.setValue(settings.quickNote);
   shortcutsGrid.setSettings(settings, editingShortcuts);
   settingsPanel.setSettings(settings);
+
+  let groupChordTimer = 0;
+  let awaitingGroupLetter = false;
 
   window.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
       e.preventDefault();
       searchBar.focus();
+      return;
+    }
+
+    if (isTypingTarget(e.target) || editingShortcuts) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (document.querySelector('.modal-root.open')) return;
+    if (document.querySelector('.panel.open:not(.panel-page)')) return;
+
+    const openGroupId = shortcutsGrid.getOpenGroupId();
+    if (openGroupId) {
+      // Inside an open group: 1–9 open that group's shortcuts; Escape closes.
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        (
+          document.querySelector(
+            '.group-overlay.is-active [data-close]',
+          ) as HTMLElement | null
+        )?.click();
+        return;
+      }
+      if (/^[1-9]$/.test(e.key)) {
+        e.preventDefault();
+        const group = settings.groups.find((g) => g.id === openGroupId);
+        if (!group) return;
+        const item = shortcutsInGroup(group, settings.shortcuts)[Number(e.key) - 1];
+        if (item) openShortcutUrl(item);
+      }
+      return;
+    }
+
+    if (awaitingGroupLetter) {
+      awaitingGroupLetter = false;
+      window.clearTimeout(groupChordTimer);
+      const letter = e.key.toLowerCase();
+      if (/^[a-z0-9]$/.test(letter)) {
+        e.preventDefault();
+        const group = settings.groups.find((g) =>
+          g.title.trim().toLowerCase().startsWith(letter),
+        );
+        if (group) shortcutsGrid.openGroup(group.id);
+      }
+      return;
+    }
+
+    if (e.key === 'g' || e.key === 'G') {
+      e.preventDefault();
+      awaitingGroupLetter = true;
+      window.clearTimeout(groupChordTimer);
+      groupChordTimer = window.setTimeout(() => {
+        awaitingGroupLetter = false;
+      }, 1200);
+      return;
+    }
+
+    if (/^[1-9]$/.test(e.key)) {
+      e.preventDefault();
+      const index = Number(e.key) - 1;
+      const order = orderedHomeIds(
+        normalizeHomeOrder(settings.homeOrder, settings.shortcuts, settings.groups),
+        settings.pinnedHomeIds,
+        settings.hiddenHomeIds,
+      );
+      const id = order[index];
+      if (!id) return;
+      const group = settings.groups.find((g) => g.id === id);
+      if (group) {
+        shortcutsGrid.openGroup(group.id);
+        return;
+      }
+      const shortcut = settings.shortcuts.find((s) => s.id === id);
+      if (shortcut) openShortcutUrl(shortcut);
     }
   });
 
@@ -496,6 +659,7 @@ async function main(): Promise<void> {
       void loadSettings().then((next) => {
         settings = next;
         settingsPanel.setSettings(next);
+        applyBranding(shell, next);
       });
     }
   });

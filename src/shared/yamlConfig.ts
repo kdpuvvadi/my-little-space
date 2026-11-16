@@ -14,6 +14,9 @@ const KNOWN_TOP_KEYS = new Set([
   'shortcuts',
   'groups',
   'homeOrder',
+  'pinnedHomeIds',
+  'hiddenHomeIds',
+  'quickNote',
   'branding',
   'vaultEnabled',
   'vaultSyncId',
@@ -43,6 +46,7 @@ const KNOWN_SHORTCUT_KEYS = new Set([
   'iconUrl',
   'metaFetchedAt',
   'iconCustom',
+  'openInNewTab',
 ]);
 const KNOWN_GROUP_KEYS = new Set(['id', 'title', 'shortcutIds', 'accentColor']);
 const KNOWN_PROVIDER_KEYS = new Set(['id', 'name', 'bang', 'searchUrl']);
@@ -78,13 +82,14 @@ export function settingsToYaml(settings: Settings): string {
     })),
     branding: settings.branding,
     shortcuts: settings.shortcuts.map(
-      ({ id, url, title, iconUrl, metaFetchedAt, iconCustom }) => ({
+      ({ id, url, title, iconUrl, metaFetchedAt, iconCustom, openInNewTab }) => ({
         id,
         url,
         title,
         iconUrl,
         metaFetchedAt,
         iconCustom,
+        openInNewTab,
       }),
     ),
     groups: settings.groups.map(({ id, title, shortcutIds, accentColor }) => ({
@@ -94,6 +99,9 @@ export function settingsToYaml(settings: Settings): string {
       accentColor,
     })),
     homeOrder: settings.homeOrder,
+    pinnedHomeIds: settings.pinnedHomeIds,
+    hiddenHomeIds: settings.hiddenHomeIds,
+    quickNote: settings.quickNote,
     vaultEnabled: settings.vaultEnabled,
     vaultSyncId: settings.vaultSyncId,
     vaultUpdatedAt: settings.vaultUpdatedAt,

@@ -2,6 +2,7 @@ import { createDefaultSettings, DEFAULT_BRANDING } from './defaults';
 import {
   GROUP_ACCENT_PALETTE,
   normalizeGroupAccentColor,
+  normalizeHomeFlags,
   normalizeHomeOrder,
 } from './groups';
 import { normalizeProviders } from './providers';
@@ -58,6 +59,7 @@ function normalizeShortcut(raw: unknown, index: number): Shortcut | null {
     iconUrl: storedIcon,
     metaFetchedAt,
     iconCustom,
+    openInNewTab: raw.openInNewTab === true,
   };
 }
 
@@ -137,6 +139,18 @@ export function normalizeSettings(raw: unknown): Settings {
     : shortcuts.map((s) => s.id);
 
   const homeOrder = normalizeHomeOrder(homeOrderRaw, shortcuts, groups);
+  const pinnedHomeIds = normalizeHomeFlags(
+    Array.isArray(raw.pinnedHomeIds)
+      ? raw.pinnedHomeIds.filter((id): id is string => typeof id === 'string')
+      : [],
+    homeOrder,
+  );
+  const hiddenHomeIds = normalizeHomeFlags(
+    Array.isArray(raw.hiddenHomeIds)
+      ? raw.hiddenHomeIds.filter((id): id is string => typeof id === 'string')
+      : [],
+    homeOrder,
+  );
 
   const theme =
     raw.theme === 'dark' || raw.theme === 'system' || raw.theme === 'light'
@@ -157,6 +171,9 @@ export function normalizeSettings(raw: unknown): Settings {
     shortcuts,
     groups,
     homeOrder,
+    pinnedHomeIds,
+    hiddenHomeIds,
+    quickNote: typeof raw.quickNote === 'string' ? raw.quickNote : '',
     branding: mergeBranding(raw.branding),
     vaultEnabled: raw.vaultEnabled === true,
     vaultSyncId:
