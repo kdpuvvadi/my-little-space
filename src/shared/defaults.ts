@@ -1,4 +1,5 @@
-import type { Branding, SearchProvider, Settings } from './types';
+import { guessPageMeta } from './shortcuts';
+import type { Branding, SearchProvider, Settings, Shortcut } from './types';
 
 export const DEFAULT_PROVIDERS: SearchProvider[] = [
   {
@@ -48,8 +49,34 @@ export const DEFAULT_BRANDING: Branding = {
   showDate: true,
 };
 
+/** Popular sites shown on first install and after Reset to default. */
+const DEFAULT_SHORTCUT_SEEDS: ReadonlyArray<{ id: string; url: string }> = [
+  { id: 'sc-default-youtube', url: 'https://www.youtube.com' },
+  { id: 'sc-default-gmail', url: 'https://mail.google.com' },
+  { id: 'sc-default-github', url: 'https://github.com' },
+  { id: 'sc-default-reddit', url: 'https://www.reddit.com' },
+  { id: 'sc-default-wikipedia', url: 'https://en.wikipedia.org' },
+  { id: 'sc-default-chatgpt', url: 'https://chatgpt.com' },
+  { id: 'sc-default-x', url: 'https://x.com' },
+];
+
+export function createDefaultShortcuts(): Shortcut[] {
+  return DEFAULT_SHORTCUT_SEEDS.map(({ id, url }) => {
+    const meta = guessPageMeta(url);
+    return {
+      id,
+      url,
+      title: meta.title,
+      iconUrl: meta.iconUrl,
+      metaFetchedAt: 0,
+      iconCustom: false,
+    };
+  });
+}
+
 export function createDefaultSettings(): Settings {
   const providers = DEFAULT_PROVIDERS.map((p) => ({ ...p }));
+  const shortcuts = createDefaultShortcuts();
   return {
     mode: 'builtin',
     customUrl: '',
@@ -60,9 +87,9 @@ export function createDefaultSettings(): Settings {
     defaultProviderId: 'google',
     enabledProviderIds: providers.map((p) => p.id),
     selectedProviderId: 'google',
-    shortcuts: [],
+    shortcuts,
     groups: [],
-    homeOrder: [],
+    homeOrder: shortcuts.map((s) => s.id),
     branding: { ...DEFAULT_BRANDING },
     vaultEnabled: false,
     vaultSyncId: '',
