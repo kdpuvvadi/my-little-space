@@ -506,40 +506,112 @@ a {
   font-weight: 600;
 }
 
-.quick-note {
-  width: min(520px, 100%);
-  margin: 1.25rem auto 0;
+.quick-note-rail {
+  position: fixed;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 35;
+  display: flex;
+  align-items: stretch;
+  pointer-events: none;
 }
 
-.quick-note-label {
-  display: block;
+.quick-note-rail > * {
+  pointer-events: auto;
+}
+
+.quick-note-tab {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  height: auto;
+  min-height: 5.5rem;
+  padding: 0.75rem 0.35rem;
+  border-radius: 0 12px 12px 0;
+  border: 1px solid var(--panel-border);
+  border-left: none;
+  background: var(--panel-bg);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  box-shadow: var(--shadow);
+}
+
+.quick-note-rail.has-content .quick-note-tab {
+  color: var(--accent);
+}
+
+.quick-note-rail.is-expanded .quick-note-tab {
+  display: none;
+}
+
+.quick-note-panel {
+  width: min(280px, calc(100vw - 1.5rem));
+  max-height: min(70vh, 420px);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 0.85rem 0.9rem;
+  border-radius: 0 16px 16px 0;
+  border: 1px solid var(--panel-border);
+  border-left: none;
+  background: var(--panel-bg);
+  box-shadow: var(--shadow);
+}
+
+.quick-note-panel[hidden] {
+  display: none !important;
+}
+
+.quick-note-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.quick-note-panel-title {
   font-size: 0.72rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--muted-2);
-  font-weight: 600;
-  margin-bottom: 0.35rem;
-  padding-left: 0.15rem;
+  font-weight: 650;
+}
+
+.quick-note-collapse {
+  width: 26px;
+  height: 26px;
+  font-size: 1rem;
+  line-height: 1;
 }
 
 .quick-note-input {
+  flex: 1;
   width: 100%;
-  min-height: 2.6rem;
-  max-height: 7rem;
-  resize: vertical;
+  min-height: 10rem;
+  resize: none;
   border: 1px solid var(--panel-border);
   border-radius: 12px;
-  padding: 0.65rem 0.8rem;
-  background: color-mix(in srgb, var(--panel-bg) 88%, transparent);
+  padding: 0.65rem 0.75rem;
+  background: var(--bg);
   color: var(--text);
   font: inherit;
-  font-size: 0.92rem;
-  line-height: 1.35;
+  font-size: 0.9rem;
+  line-height: 1.4;
   outline: none;
 }
 
 .quick-note-input:focus {
   border-color: var(--accent);
+}
+
+@media (max-width: 720px) {
+  .quick-note-panel {
+    width: min(240px, calc(100vw - 1rem));
+    max-height: min(55vh, 320px);
+  }
 }
 
 .shortcuts-section {

@@ -551,7 +551,8 @@ async function main(): Promise<void> {
     },
   });
 
-  shell.mainColumn.append(searchBar.root, quickNote.root, shortcutsGrid.root);
+  shell.mainColumn.append(searchBar.root, shortcutsGrid.root);
+  app.append(quickNote.root);
   shell.customizeBtn.addEventListener('click', () => settingsPanel.open());
   wireCatFact(shell);
 
