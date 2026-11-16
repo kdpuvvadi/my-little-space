@@ -70,4 +70,6 @@ export type Settings = {
   vaultSyncId: string;
   /** Epoch ms of last successful vault upload from this device. */
   vaultUpdatedAt: number;
+  /** True after the recovery key was downloaded/acknowledged — never show it again. */
+  vaultKeySaved: boolean;
 };

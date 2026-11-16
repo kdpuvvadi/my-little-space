@@ -167,6 +167,7 @@ export function normalizeSettings(raw: unknown): Settings {
       typeof raw.vaultUpdatedAt === 'number' && Number.isFinite(raw.vaultUpdatedAt)
         ? raw.vaultUpdatedAt
         : 0,
+    vaultKeySaved: raw.vaultKeySaved === true,
   };
 }
 

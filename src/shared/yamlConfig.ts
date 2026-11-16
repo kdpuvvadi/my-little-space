@@ -18,6 +18,7 @@ const KNOWN_TOP_KEYS = new Set([
   'vaultEnabled',
   'vaultSyncId',
   'vaultUpdatedAt',
+  'vaultKeySaved',
 ]);
 
 const KNOWN_BRANDING_KEYS = new Set([
@@ -96,6 +97,7 @@ export function settingsToYaml(settings: Settings): string {
     vaultEnabled: settings.vaultEnabled,
     vaultSyncId: settings.vaultSyncId,
     vaultUpdatedAt: settings.vaultUpdatedAt,
+    vaultKeySaved: settings.vaultKeySaved,
   };
   return stringify(payload, { lineWidth: 0 });
 }

@@ -67,5 +67,6 @@ export function createDefaultSettings(): Settings {
     vaultEnabled: false,
     vaultSyncId: '',
     vaultUpdatedAt: 0,
+    vaultKeySaved: false,
   };
 }

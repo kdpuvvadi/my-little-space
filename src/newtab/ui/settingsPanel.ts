@@ -249,7 +249,6 @@ export function createSettingsPanel(options: {
           <p class="panel-note" id="vaultSyncStatus">${escapeAttr(formatVaultSyncedAt(s.vaultUpdatedAt))}</p>
           <div class="panel-actions vault-actions">
             <button type="button" class="btn primary" id="vaultSyncNow">Sync now</button>
-            <button type="button" class="btn" id="vaultShowKey">Show key</button>
             ${
               vaultRestoreOpen
                 ? ''
@@ -271,16 +270,16 @@ export function createSettingsPanel(options: {
           `
           }
           ${
-            pendingRecoveryKey
+            pendingRecoveryKey && !s.vaultKeySaved
               ? `
           <div class="field">
-            <label for="vaultRecoveryKeyDisplay">Recovery key — save this file</label>
+            <label for="vaultRecoveryKeyDisplay">Recovery key — save this once</label>
             <input type="text" id="vaultRecoveryKeyDisplay" readonly value="${escapeAttr(pendingRecoveryKey)}" />
-            <p class="panel-note">Download the key file and keep it somewhere safe. Anyone with this key can restore your backup.</p>
+            <p class="panel-note">Download the key file now. It will not be shown again after you save it.</p>
             <div class="panel-actions vault-actions">
               <button type="button" class="btn primary" id="vaultDownloadKey">Download key file</button>
               <button type="button" class="btn" id="vaultCopyKey">Copy key</button>
-              <button type="button" class="btn" id="vaultKeySaved">Done</button>
+              <button type="button" class="btn" id="vaultKeySaved">I've saved it</button>
             </div>
           </div>
           `
@@ -529,8 +528,19 @@ export function createSettingsPanel(options: {
       vaultEnabled: false,
       vaultSyncId: '',
       vaultUpdatedAt: 0,
+      vaultKeySaved: false,
     });
     setVaultFeedback(message);
+  }
+
+  async function markVaultKeySaved(note: string): Promise<void> {
+    pendingRecoveryKey = null;
+    if (!settings) return;
+    const next = { ...settings, vaultKeySaved: true };
+    settings = next;
+    await options.onChange(next);
+    setVaultFeedback(note);
+    render();
   }
 
   function parseRecoveryKeyInput(raw: string): string {
@@ -565,6 +575,7 @@ export function createSettingsPanel(options: {
             vaultEnabled: true,
             vaultSyncId: syncId,
             vaultUpdatedAt: 0,
+            vaultKeySaved: false,
           };
           settings = next;
           pendingRecoveryKey = key;
@@ -572,14 +583,14 @@ export function createSettingsPanel(options: {
           const outcome = await syncVaultNow(next);
           if (outcome.ok) {
             settings = { ...next, vaultUpdatedAt: outcome.updatedAt };
-            setVaultFeedback('Safe backup enabled. Save your recovery key now.');
+            setVaultFeedback('Safe backup enabled. Download your recovery key now — it will not be shown again.');
           } else if (!outcome.skipped) {
             setVaultFeedback(
-              'Enabled locally, but first sync failed. Try Sync now.',
+              'Enabled locally, but first sync failed. Download your key now — it will not be shown again.',
               outcome.error,
             );
           } else {
-            setVaultFeedback('Safe backup enabled. Save your recovery key now.');
+            setVaultFeedback('Safe backup enabled. Download your recovery key now — it will not be shown again.');
           }
           render();
         } catch (err) {
@@ -607,26 +618,14 @@ export function createSettingsPanel(options: {
       })();
     });
 
-    body.querySelector('#vaultShowKey')?.addEventListener('click', () => {
-      void (async () => {
-        const key = pendingRecoveryKey || (await loadVaultKey());
-        if (!key) {
-          setVaultFeedback(
-            '',
-            'No recovery key on this device. Restore with your key, or enable Safe backup again.',
-          );
-          return;
-        }
-        pendingRecoveryKey = key;
-        setVaultFeedback('Recovery key shown below.');
-        render();
-      })();
-    });
-
     body.querySelector('#vaultDownloadKey')?.addEventListener('click', () => {
-      if (!pendingRecoveryKey) return;
-      downloadRecoveryKeyFile(pendingRecoveryKey);
-      setVaultFeedback('Recovery key file downloaded. Store it somewhere safe.');
+      void (async () => {
+        if (!pendingRecoveryKey) return;
+        downloadRecoveryKeyFile(pendingRecoveryKey);
+        await markVaultKeySaved(
+          'Recovery key file downloaded. It will not be shown again on this device.',
+        );
+      })();
     });
 
     body.querySelector('#vaultCopyKey')?.addEventListener('click', () => {
@@ -634,7 +633,7 @@ export function createSettingsPanel(options: {
         if (!pendingRecoveryKey) return;
         try {
           await navigator.clipboard.writeText(pendingRecoveryKey);
-          setVaultFeedback('Recovery key copied.');
+          setVaultFeedback('Recovery key copied. Save it now — use “I’ve saved it” when done.');
         } catch {
           setVaultFeedback('', 'Could not copy — select and copy manually.');
         }
@@ -642,9 +641,9 @@ export function createSettingsPanel(options: {
     });
 
     body.querySelector('#vaultKeySaved')?.addEventListener('click', () => {
-      pendingRecoveryKey = null;
-      setVaultFeedback('Recovery key hidden. It stays remembered on this device.');
-      render();
+      void markVaultKeySaved(
+        'Recovery key hidden permanently on this device. Use your saved file to restore elsewhere.',
+      );
     });
 
     body.querySelector('#vaultDisable')?.addEventListener('click', () => {
@@ -788,6 +787,7 @@ export function createSettingsPanel(options: {
             vaultEnabled: true,
             vaultSyncId: syncId,
             vaultUpdatedAt: restored.vaultUpdatedAt || Date.now(),
+            vaultKeySaved: true,
           };
           pendingRecoveryKey = null;
           vaultRestoreOpen = false;
