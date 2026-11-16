@@ -1,8 +1,25 @@
-import { BUILD_META_SERVICE_URL } from '../../shared/buildConfig';
+import { BUILD_META_SERVICE_URL, resolveMetaServiceUrl } from '../../shared/buildConfig';
 import { createDefaultSettings, DEFAULT_PROVIDERS } from '../../shared/defaults';
 import { newCustomProvider, normalizeBang } from '../../shared/providers';
+import { normalizeSettings } from '../../shared/storage';
 import type { Branding, SearchProvider, Settings, ThemeMode } from '../../shared/types';
 import { applyTheme } from '../../shared/theme';
+import {
+  deleteVault,
+  downloadDecryptedSettings,
+} from '../../shared/vaultClient';
+import { generateRecoveryKey, syncIdFromKey } from '../../shared/vaultCrypto';
+import {
+  clearVaultKey,
+  loadVaultKey,
+  saveVaultKey,
+} from '../../shared/vaultKeyStore';
+import {
+  formatVaultSyncedAt,
+  saveRecoveryKeyToPasswordManager,
+  VAULT_PM_USERNAME,
+} from '../../shared/vaultPasswordManager';
+import { syncVaultNow } from '../../shared/vaultSync';
 import { downloadYaml, settingsToYaml, yamlToSettings } from '../../shared/yamlConfig';
 import { closeSvg, pencilSvg } from './icons';
 
@@ -29,6 +46,10 @@ export function createSettingsPanel(options: {
   mount?: HTMLElement;
 }): SettingsPanelApi {
   let settings: Settings | null = null;
+  /** Shown once after enable until the user confirms they saved it. */
+  let pendingRecoveryKey: string | null = null;
+  let vaultStatusNote = '';
+  let vaultStatusError = '';
   const variant = options.variant ?? 'drawer';
   const mount = options.mount ?? document.body;
 
@@ -197,6 +218,64 @@ export function createSettingsPanel(options: {
         <p class="panel-note" id="yamlNote"></p>
       </div>
 
+      <div class="field-group">
+        <h3>Safe backup</h3>
+        <p class="panel-note">Encrypted settings backup on the meta helper. One recovery key identifies and decrypts your backup. The server never sees plaintext or your key.</p>
+        ${
+          s.vaultEnabled
+            ? `
+        <p class="panel-note" id="vaultSyncStatus">${escapeAttr(formatVaultSyncedAt(s.vaultUpdatedAt))}</p>
+        <div class="panel-actions">
+          <button type="button" class="btn primary" id="vaultSyncNow">Sync now</button>
+          <button type="button" class="btn" id="vaultShowKey">Show recovery key</button>
+          <button type="button" class="btn" id="vaultDisable">Disable</button>
+          <button type="button" class="btn danger-btn" id="vaultDeleteRemote">Delete remote backup</button>
+        </div>
+        <div class="field-row">
+          <label for="vaultDisableDeleteRemote">Also delete remote when disabling</label>
+          <input type="checkbox" id="vaultDisableDeleteRemote" />
+        </div>
+        `
+            : `
+        <div class="panel-actions">
+          <button type="button" class="btn primary" id="vaultEnable">Enable Safe backup</button>
+        </div>
+        `
+        }
+        ${
+          pendingRecoveryKey
+            ? `
+        <div class="field vault-key-reveal">
+          <label for="vaultRecoveryKeyDisplay">Recovery key — save this now</label>
+          <input type="text" id="vaultRecoveryKeyDisplay" readonly value="${escapeAttr(pendingRecoveryKey)}" />
+          <p class="panel-note">Username for password managers: <code>${VAULT_PM_USERNAME}</code>. The password is this recovery key.</p>
+          <form id="mls-vault-pm" class="vault-pm-form" autocomplete="on">
+            <input type="text" name="username" autocomplete="username" value="${VAULT_PM_USERNAME}" readonly tabindex="-1" aria-hidden="true" />
+            <input type="password" name="password" autocomplete="new-password" value="${escapeAttr(pendingRecoveryKey)}" readonly tabindex="-1" aria-hidden="true" />
+          </form>
+          <div class="panel-actions">
+            <button type="button" class="btn" id="vaultCopyKey">Copy key</button>
+            <button type="button" class="btn primary" id="vaultSavePm">Save in password manager</button>
+            <button type="button" class="btn" id="vaultKeySaved">I've saved my key</button>
+          </div>
+        </div>
+        `
+            : ''
+        }
+        <div class="field">
+          <label for="vaultRestoreKey">Restore from recovery key</label>
+          <form id="mls-vault-restore" class="vault-restore-form" autocomplete="on">
+            <input type="text" name="username" autocomplete="username" value="${VAULT_PM_USERNAME}" class="vault-pm-username" readonly tabindex="-1" aria-hidden="true" />
+            <input type="password" id="vaultRestoreKey" name="password" autocomplete="current-password" placeholder="Paste or autofill recovery key" />
+          </form>
+        </div>
+        <div class="panel-actions">
+          <button type="button" class="btn" id="vaultRestore">Restore</button>
+        </div>
+        <p class="panel-error" id="vaultError">${escapeAttr(vaultStatusError)}</p>
+        <p class="panel-note" id="vaultNote">${escapeAttr(vaultStatusNote)}</p>
+      </div>
+
       <details class="advanced-group">
         <summary>Advanced</summary>
         <div class="field">
@@ -220,6 +299,7 @@ export function createSettingsPanel(options: {
     bindModeFields();
     bindSearchFields();
     bindBackup();
+    bindSafeBackup();
     bindAdvancedFields();
   }
 
@@ -402,10 +482,229 @@ export function createSettingsPanel(options: {
       return;
     }
     const next = createDefaultSettings();
+    pendingRecoveryKey = null;
+    vaultStatusNote = '';
+    vaultStatusError = '';
+    await clearVaultKey();
     applyTheme(next.theme);
     settings = next;
     await options.onChange(next);
     render();
+  }
+
+  function setVaultFeedback(note: string, error = ''): void {
+    vaultStatusNote = note;
+    vaultStatusError = error;
+    const noteEl = body.querySelector('#vaultNote') as HTMLElement | null;
+    const errEl = body.querySelector('#vaultError') as HTMLElement | null;
+    if (noteEl) noteEl.textContent = note;
+    if (errEl) errEl.textContent = error;
+  }
+
+  function bindSafeBackup(): void {
+    body.querySelector('#vaultEnable')?.addEventListener('click', () => {
+      void (async () => {
+        if (!settings) return;
+        setVaultFeedback('Enabling Safe backup…');
+        try {
+          const key = generateRecoveryKey();
+          const syncId = await syncIdFromKey(key);
+          await saveVaultKey(key);
+          const next: Settings = {
+            ...settings,
+            vaultEnabled: true,
+            vaultSyncId: syncId,
+            vaultUpdatedAt: 0,
+          };
+          settings = next;
+          pendingRecoveryKey = key;
+          await options.onChange(next);
+          const outcome = await syncVaultNow(next);
+          if (outcome.ok) {
+            settings = { ...next, vaultUpdatedAt: outcome.updatedAt };
+            setVaultFeedback('Safe backup enabled. Save your recovery key now.');
+          } else if (!outcome.skipped) {
+            setVaultFeedback(
+              'Enabled locally, but first sync failed. Try Sync now.',
+              outcome.error,
+            );
+          } else {
+            setVaultFeedback('Safe backup enabled. Save your recovery key now.');
+          }
+          render();
+        } catch (err) {
+          setVaultFeedback(
+            '',
+            err instanceof Error ? err.message : 'Could not enable Safe backup',
+          );
+        }
+      })();
+    });
+
+    body.querySelector('#vaultSyncNow')?.addEventListener('click', () => {
+      void (async () => {
+        if (!settings) return;
+        setVaultFeedback('Syncing…');
+        const outcome = await syncVaultNow(settings);
+        if (outcome.ok) {
+          settings = { ...settings, vaultUpdatedAt: outcome.updatedAt };
+          setVaultFeedback(formatVaultSyncedAt(outcome.updatedAt));
+          const status = body.querySelector('#vaultSyncStatus');
+          if (status) status.textContent = formatVaultSyncedAt(outcome.updatedAt);
+        } else {
+          setVaultFeedback('', outcome.error);
+        }
+      })();
+    });
+
+    body.querySelector('#vaultShowKey')?.addEventListener('click', () => {
+      void (async () => {
+        const key = pendingRecoveryKey || (await loadVaultKey());
+        if (!key) {
+          setVaultFeedback(
+            '',
+            'No recovery key on this device. Restore with your key, or enable Safe backup again.',
+          );
+          return;
+        }
+        pendingRecoveryKey = key;
+        setVaultFeedback('Recovery key shown below.');
+        render();
+      })();
+    });
+
+    body.querySelector('#vaultCopyKey')?.addEventListener('click', () => {
+      void (async () => {
+        if (!pendingRecoveryKey) return;
+        try {
+          await navigator.clipboard.writeText(pendingRecoveryKey);
+          setVaultFeedback('Recovery key copied.');
+        } catch {
+          setVaultFeedback('', 'Could not copy — select and copy manually.');
+        }
+      })();
+    });
+
+    body.querySelector('#vaultSavePm')?.addEventListener('click', () => {
+      void (async () => {
+        if (!pendingRecoveryKey) return;
+        const form = body.querySelector('#mls-vault-pm') as HTMLFormElement | null;
+        await saveRecoveryKeyToPasswordManager(pendingRecoveryKey, form);
+        setVaultFeedback('Password manager prompted (if supported). Confirm the save.');
+      })();
+    });
+
+    body.querySelector('#vaultKeySaved')?.addEventListener('click', () => {
+      pendingRecoveryKey = null;
+      setVaultFeedback('Recovery key hidden. It stays remembered on this device.');
+      render();
+    });
+
+    body.querySelector('#vaultDisable')?.addEventListener('click', () => {
+      void (async () => {
+        if (!settings) return;
+        if (!confirm('Disable Safe backup on this device? Local settings stay.')) return;
+        const alsoDelete = (
+          body.querySelector('#vaultDisableDeleteRemote') as HTMLInputElement | null
+        )?.checked;
+        const syncId = settings.vaultSyncId;
+        const serviceUrl = resolveMetaServiceUrl(settings.metaServiceUrl);
+        if (alsoDelete && syncId && serviceUrl) {
+          try {
+            await deleteVault(serviceUrl, syncId);
+          } catch (err) {
+            setVaultFeedback(
+              '',
+              err instanceof Error ? err.message : 'Could not delete remote backup',
+            );
+            return;
+          }
+        }
+        await clearVaultKey();
+        pendingRecoveryKey = null;
+        await patchSettings({
+          vaultEnabled: false,
+          vaultSyncId: '',
+          vaultUpdatedAt: 0,
+        });
+        setVaultFeedback(
+          alsoDelete
+            ? 'Safe backup disabled and remote backup deleted.'
+            : 'Safe backup disabled. Remote backup kept (restore with your key anytime).',
+        );
+      })();
+    });
+
+    body.querySelector('#vaultDeleteRemote')?.addEventListener('click', () => {
+      void (async () => {
+        if (!settings?.vaultSyncId) return;
+        if (!confirm('Permanently delete the remote encrypted backup?')) return;
+        const serviceUrl = resolveMetaServiceUrl(settings.metaServiceUrl);
+        try {
+          await deleteVault(serviceUrl, settings.vaultSyncId);
+          setVaultFeedback('Remote backup deleted.');
+        } catch (err) {
+          setVaultFeedback(
+            '',
+            err instanceof Error ? err.message : 'Could not delete remote backup',
+          );
+        }
+      })();
+    });
+
+    body.querySelector('#vaultRestore')?.addEventListener('click', () => {
+      void (async () => {
+        if (!settings) return;
+        const input = body.querySelector('#vaultRestoreKey') as HTMLInputElement | null;
+        const key = (input?.value || '').trim();
+        if (!key) {
+          setVaultFeedback('', 'Enter your recovery key to restore.');
+          return;
+        }
+        if (
+          !confirm(
+            'Replace all local settings with the encrypted backup for this key?',
+          )
+        ) {
+          return;
+        }
+        setVaultFeedback('Restoring…');
+        try {
+          const syncId = await syncIdFromKey(key);
+          const serviceUrl = resolveMetaServiceUrl(settings.metaServiceUrl);
+          const restored = normalizeSettings(
+            await downloadDecryptedSettings(serviceUrl, syncId, key),
+          );
+          await saveVaultKey(key);
+          const next: Settings = {
+            ...restored,
+            vaultEnabled: true,
+            vaultSyncId: syncId,
+            vaultUpdatedAt: restored.vaultUpdatedAt || Date.now(),
+          };
+          pendingRecoveryKey = null;
+          settings = next;
+          applyTheme(next.theme);
+          await options.onImport(next);
+          setVaultFeedback('Restored from Safe backup. Key remembered on this device.');
+          render();
+        } catch (err) {
+          setVaultFeedback(
+            '',
+            err instanceof Error ? err.message : 'Restore failed',
+          );
+        }
+      })();
+    });
+
+    // Prevent restore form from navigating on Enter.
+    body.querySelector('#mls-vault-restore')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      (body.querySelector('#vaultRestore') as HTMLButtonElement | null)?.click();
+    });
+    body.querySelector('#mls-vault-pm')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+    });
   }
 
   function bindBrandingFields(): void {
