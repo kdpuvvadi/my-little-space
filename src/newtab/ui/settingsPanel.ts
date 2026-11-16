@@ -9,11 +9,7 @@ import {
   downloadDecryptedSettings,
 } from '../../shared/vaultClient';
 import { generateRecoveryKey, syncIdFromKey } from '../../shared/vaultCrypto';
-import {
-  clearVaultKey,
-  loadVaultKey,
-  saveVaultKey,
-} from '../../shared/vaultKeyStore';
+import { clearVaultKey, saveVaultKey } from '../../shared/vaultKeyStore';
 import { formatVaultSyncedAt, syncVaultNow } from '../../shared/vaultSync';
 import {
   downloadRecoveryKeyFile,
