@@ -11,7 +11,7 @@ import {
   shortcutsInGroup,
 } from '../shared/groups';
 import { openShortcutUrl } from '../shared/shortcuts';
-import { fetchSiteMeta, isMetaExpired } from '../shared/siteMetaClient';
+import { fetchSiteMeta } from '../shared/siteMetaClient';
 import { loadSettings, saveSettings, updateSettings } from '../shared/storage';
 import { applyTheme, watchSystemTheme } from '../shared/theme';
 import type { Settings, Shortcut, ShortcutGroup, ThemeMode } from '../shared/types';
@@ -377,11 +377,11 @@ async function main(): Promise<void> {
       shortcutsGrid.setUpdateBusy(true);
       try {
         const serviceUrl = resolveMetaServiceUrl(settings.metaServiceUrl);
-        const now = Date.now();
         const d = activeDraft();
         const nextShortcuts: Shortcut[] = [];
         for (const sc of d.shortcuts) {
-          if (sc.iconCustom || !isMetaExpired(sc.metaFetchedAt, now)) {
+          // Custom icons are kept; everything else refreshes on demand.
+          if (sc.iconCustom) {
             nextShortcuts.push(sc);
             continue;
           }

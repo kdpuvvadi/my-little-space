@@ -58,7 +58,7 @@ export function createShortcutsGrid(options: {
     <div class="shortcuts-header">
       <h2 class="shortcuts-title"></h2>
       <div class="shortcuts-header-actions">
-        <button type="button" class="edit-btn update-meta-btn hidden" title="Refresh names and icons for shortcuts older than 30 days">
+        <button type="button" class="edit-btn update-meta-btn hidden" title="Refresh names and icons for all shortcuts">
           Update
         </button>
         <button type="button" class="edit-btn cancel-btn hidden">Cancel</button>
