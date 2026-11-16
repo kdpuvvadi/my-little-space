@@ -32,14 +32,14 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends nodejs \
   && rm -rf /var/lib/apt/lists/* \
   && mkdir -p /data \
-  && useradd --system --create-home --uid 1000 app \
-  && chown -R app:app /data /app
+  && chmod 755 /data
 
-COPY --from=build --chown=app:app /app/package.json /app/package-lock.json ./
-COPY --from=build --chown=app:app /app/node_modules ./node_modules
-COPY --from=build --chown=app:app /app/dist ./dist
+COPY --from=build /app/package.json /app/package-lock.json ./
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/dist ./dist
 
-USER app
+# Must stay root: Railway volume mounts are owned by root (docs.railway.com/volumes).
+USER root
 EXPOSE 3847
 VOLUME ["/data"]
 CMD ["node", "dist/index.js"]
