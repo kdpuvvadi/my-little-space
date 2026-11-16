@@ -25,6 +25,7 @@ export type ShortcutsGridApi = {
   setSettings: (settings: Settings, editing: boolean) => void;
   setUpdateBusy: (busy: boolean) => void;
   openGroup: (groupId: string) => void;
+  getOpenGroupId: () => string | null;
 };
 
 export function createShortcutsGrid(options: {
@@ -1049,6 +1050,7 @@ export function createShortcutsGrid(options: {
       if (!groupById(groupId)) return;
       openGroupSheet(groupId);
     },
+    getOpenGroupId: () => openGroupId,
   };
 }
 

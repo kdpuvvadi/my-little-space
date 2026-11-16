@@ -8,6 +8,7 @@ import {
   normalizeHomeOrder,
   orderedHomeIds,
   removeShortcutFromGroup,
+  shortcutsInGroup,
 } from '../shared/groups';
 import { fetchSiteMeta, isMetaExpired } from '../shared/siteMetaClient';
 import { loadSettings, saveSettings, updateSettings } from '../shared/storage';
@@ -582,8 +583,30 @@ async function main(): Promise<void> {
 
     if (isTypingTarget(e.target) || editingShortcuts) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
-    if (document.querySelector('.modal-root.open, .group-overlay.is-active')) return;
+    if (document.querySelector('.modal-root.open')) return;
     if (document.querySelector('.panel.open:not(.panel-page)')) return;
+
+    const openGroupId = shortcutsGrid.getOpenGroupId();
+    if (openGroupId) {
+      // Inside an open group: 1–9 open that group's shortcuts; Escape closes.
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        (
+          document.querySelector(
+            '.group-overlay.is-active [data-close]',
+          ) as HTMLElement | null
+        )?.click();
+        return;
+      }
+      if (/^[1-9]$/.test(e.key)) {
+        e.preventDefault();
+        const group = settings.groups.find((g) => g.id === openGroupId);
+        if (!group) return;
+        const item = shortcutsInGroup(group, settings.shortcuts)[Number(e.key) - 1];
+        if (item?.url) window.location.assign(item.url);
+      }
+      return;
+    }
 
     if (awaitingGroupLetter) {
       awaitingGroupLetter = false;
