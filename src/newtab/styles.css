@@ -1434,6 +1434,16 @@ a {
   margin-bottom: 0.75rem;
 }
 
+.advanced-subgroup {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border, rgba(0, 0, 0, 0.08));
+}
+
+.advanced-subgroup h3 {
+  margin-top: 0;
+}
+
 .field {
   display: flex;
   flex-direction: column;

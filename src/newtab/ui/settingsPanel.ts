@@ -48,6 +48,9 @@ export function createSettingsPanel(options: {
   let settings: Settings | null = null;
   /** Shown once after enable until the user confirms they saved it. */
   let pendingRecoveryKey: string | null = null;
+  /** Restore key form is hidden until the user chooses Restore. */
+  let vaultRestoreOpen = false;
+  let advancedOpen = false;
   let vaultStatusNote = '';
   let vaultStatusError = '';
   const variant = options.variant ?? 'drawer';
@@ -218,63 +221,9 @@ export function createSettingsPanel(options: {
         <p class="panel-note" id="yamlNote"></p>
       </div>
 
-      <div class="field-group">
-        <h3>Safe backup</h3>
-        <p class="panel-note">Encrypted settings backup on the meta helper. One recovery key identifies and decrypts your backup. The server never sees plaintext or your key.</p>
-        ${
-          s.vaultEnabled
-            ? `
-        <p class="panel-note" id="vaultSyncStatus">${escapeAttr(formatVaultSyncedAt(s.vaultUpdatedAt))}</p>
-        <div class="panel-actions">
-          <button type="button" class="btn primary" id="vaultSyncNow">Sync now</button>
-          <button type="button" class="btn" id="vaultShowKey">Show recovery key</button>
-          <button type="button" class="btn" id="vaultDisable">Disable</button>
-          <button type="button" class="btn danger-btn" id="vaultDeleteRemote">Delete remote backup</button>
-        </div>
-        <div class="field-row">
-          <label for="vaultDisableDeleteRemote">Also delete remote when disabling</label>
-          <input type="checkbox" id="vaultDisableDeleteRemote" />
-        </div>
-        `
-            : `
-        <div class="panel-actions">
-          <button type="button" class="btn primary" id="vaultEnable">Enable Safe backup</button>
-        </div>
-        `
-        }
-        ${
-          pendingRecoveryKey
-            ? `
-        <div class="field">
-          <label for="vaultRecoveryKeyDisplay">Recovery key — save this now</label>
-          <input type="text" id="vaultRecoveryKeyDisplay" readonly value="${escapeAttr(pendingRecoveryKey)}" />
-          <p class="panel-note">Password manager username: <code>${VAULT_PM_USERNAME}</code> (password = this key).</p>
-          <form id="mls-vault-pm" class="vault-pm-honeypot" autocomplete="on">
-            <input type="text" name="username" autocomplete="username" value="${VAULT_PM_USERNAME}" readonly tabindex="-1" aria-hidden="true" />
-            <input type="password" name="password" autocomplete="new-password" value="${escapeAttr(pendingRecoveryKey)}" readonly tabindex="-1" aria-hidden="true" />
-          </form>
-          <div class="panel-actions">
-            <button type="button" class="btn" id="vaultCopyKey">Copy key</button>
-            <button type="button" class="btn primary" id="vaultSavePm">Save in password manager</button>
-            <button type="button" class="btn" id="vaultKeySaved">I've saved my key</button>
-          </div>
-        </div>
-        `
-            : ''
-        }
-        <form id="mls-vault-restore" class="field" autocomplete="on">
-          <label for="vaultRestoreKey">Restore from recovery key</label>
-          <input type="text" name="username" autocomplete="username" value="${VAULT_PM_USERNAME}" class="vault-pm-honeypot" readonly tabindex="-1" aria-hidden="true" />
-          <input type="password" id="vaultRestoreKey" name="password" autocomplete="current-password" placeholder="Paste or autofill recovery key" />
-          <div class="panel-actions">
-            <button type="submit" class="btn" id="vaultRestore">Restore</button>
-          </div>
-        </form>
-        <p class="panel-error" id="vaultError">${escapeAttr(vaultStatusError)}</p>
-        <p class="panel-note" id="vaultNote">${escapeAttr(vaultStatusNote)}</p>
-      </div>
-
-      <details class="advanced-group">
+      <details class="advanced-group"${
+        advancedOpen || vaultRestoreOpen || Boolean(pendingRecoveryKey) ? ' open' : ''
+      }>
         <summary>Advanced</summary>
         <div class="field">
           <label for="metaServiceUrl">Site meta helper URL</label>
@@ -288,6 +237,83 @@ export function createSettingsPanel(options: {
               ? `Leave empty for the default (${escapeAttr(BUILD_META_SERVICE_URL)}), or enter a custom URL.`
               : 'Leave empty for the built-in default, or enter a custom URL.'
           }</p>
+        </div>
+
+        <div class="field-group advanced-subgroup">
+          <h3>Safe backup</h3>
+          <p class="panel-note">Encrypted backup on the meta helper. One recovery key identifies and decrypts it.</p>
+          ${
+            s.vaultEnabled
+              ? `
+          <p class="panel-note" id="vaultSyncStatus">${escapeAttr(formatVaultSyncedAt(s.vaultUpdatedAt))}</p>
+          <div class="panel-actions">
+            <button type="button" class="btn primary" id="vaultSyncNow">Sync now</button>
+            <button type="button" class="btn" id="vaultShowKey">Show recovery key</button>
+            <button type="button" class="btn" id="vaultDisable">Disable</button>
+            <button type="button" class="btn danger-btn" id="vaultDeleteRemote">Delete remote backup</button>
+          </div>
+          <div class="field-row">
+            <label for="vaultDisableDeleteRemote">Also delete remote when disabling</label>
+            <input type="checkbox" id="vaultDisableDeleteRemote" />
+          </div>
+          `
+              : `
+          <div class="panel-actions">
+            <button type="button" class="btn primary" id="vaultEnable">Enable Safe backup</button>
+            ${
+              vaultRestoreOpen
+                ? ''
+                : `<button type="button" class="btn" id="vaultShowRestore">Restore</button>`
+            }
+          </div>
+          `
+          }
+          ${
+            s.vaultEnabled && !vaultRestoreOpen
+              ? `
+          <div class="panel-actions">
+            <button type="button" class="btn" id="vaultShowRestore">Restore</button>
+          </div>
+          `
+              : ''
+          }
+          ${
+            pendingRecoveryKey
+              ? `
+          <div class="field">
+            <label for="vaultRecoveryKeyDisplay">Recovery key — save this now</label>
+            <input type="text" id="vaultRecoveryKeyDisplay" readonly value="${escapeAttr(pendingRecoveryKey)}" />
+            <p class="panel-note">Password manager username: <code>${VAULT_PM_USERNAME}</code> (password = this key).</p>
+            <form id="mls-vault-pm" class="vault-pm-honeypot" autocomplete="on">
+              <input type="text" name="username" autocomplete="username" value="${VAULT_PM_USERNAME}" readonly tabindex="-1" aria-hidden="true" />
+              <input type="password" name="password" autocomplete="new-password" value="${escapeAttr(pendingRecoveryKey)}" readonly tabindex="-1" aria-hidden="true" />
+            </form>
+            <div class="panel-actions">
+              <button type="button" class="btn" id="vaultCopyKey">Copy key</button>
+              <button type="button" class="btn primary" id="vaultSavePm">Save in password manager</button>
+              <button type="button" class="btn" id="vaultKeySaved">I've saved my key</button>
+            </div>
+          </div>
+          `
+              : ''
+          }
+          ${
+            vaultRestoreOpen
+              ? `
+          <form id="mls-vault-restore" class="field" autocomplete="on">
+            <label for="vaultRestoreKey">Recovery key</label>
+            <input type="text" name="username" autocomplete="username" value="${VAULT_PM_USERNAME}" class="vault-pm-honeypot" readonly tabindex="-1" aria-hidden="true" />
+            <input type="password" id="vaultRestoreKey" name="password" autocomplete="current-password" placeholder="Paste or autofill recovery key" />
+            <div class="panel-actions">
+              <button type="submit" class="btn primary" id="vaultRestore">Restore backup</button>
+              <button type="button" class="btn" id="vaultCancelRestore">Cancel</button>
+            </div>
+          </form>
+          `
+              : ''
+          }
+          <p class="panel-error" id="vaultError">${escapeAttr(vaultStatusError)}</p>
+          <p class="panel-note" id="vaultNote">${escapeAttr(vaultStatusNote)}</p>
         </div>
       </details>
     `;
@@ -481,6 +507,7 @@ export function createSettingsPanel(options: {
     }
     const next = createDefaultSettings();
     pendingRecoveryKey = null;
+    vaultRestoreOpen = false;
     vaultStatusNote = '';
     vaultStatusError = '';
     await clearVaultKey();
@@ -650,7 +677,22 @@ export function createSettingsPanel(options: {
       })();
     });
 
-    body.querySelector('#vaultRestore')?.addEventListener('click', () => {
+    body.querySelector('#vaultShowRestore')?.addEventListener('click', () => {
+      vaultRestoreOpen = true;
+      advancedOpen = true;
+      vaultStatusNote = '';
+      vaultStatusError = '';
+      render();
+    });
+
+    body.querySelector('#vaultCancelRestore')?.addEventListener('click', () => {
+      vaultRestoreOpen = false;
+      vaultStatusNote = '';
+      vaultStatusError = '';
+      render();
+    });
+
+    const runRestore = () => {
       void (async () => {
         if (!settings) return;
         const input = body.querySelector('#vaultRestoreKey') as HTMLInputElement | null;
@@ -681,6 +723,7 @@ export function createSettingsPanel(options: {
             vaultUpdatedAt: restored.vaultUpdatedAt || Date.now(),
           };
           pendingRecoveryKey = null;
+          vaultRestoreOpen = false;
           settings = next;
           applyTheme(next.theme);
           await options.onImport(next);
@@ -693,11 +736,16 @@ export function createSettingsPanel(options: {
           );
         }
       })();
+    };
+
+    body.querySelector('#vaultRestore')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      runRestore();
     });
 
     body.querySelector('#mls-vault-restore')?.addEventListener('submit', (e) => {
       e.preventDefault();
-      (body.querySelector('#vaultRestore') as HTMLButtonElement | null)?.click();
+      runRestore();
     });
     body.querySelector('#mls-vault-pm')?.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -774,6 +822,9 @@ export function createSettingsPanel(options: {
   }
 
   function bindAdvancedFields(): void {
+    body.querySelector('.advanced-group')?.addEventListener('toggle', (e) => {
+      advancedOpen = (e.target as HTMLDetailsElement).open;
+    });
     body.querySelector('#metaServiceUrl')?.addEventListener('change', async (e) => {
       await patchSettings({
         metaServiceUrl: (e.target as HTMLInputElement).value.trim(),
