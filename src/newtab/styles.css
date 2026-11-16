@@ -1590,11 +1590,28 @@ a {
 
 .panel-actions.vault-actions {
   width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.panel-actions.vault-actions:has(> .btn:only-child),
+.panel-actions.vault-actions-secondary {
+  grid-template-columns: 1fr;
+}
+
+.panel-actions.vault-actions-secondary {
+  margin-top: 0.35rem;
 }
 
 .panel-actions.vault-actions .btn {
-  flex: 0 1 auto;
+  width: 100%;
   min-width: 0;
+  justify-content: center;
+}
+
+.vault-restore-block {
+  margin-top: 0.35rem;
 }
 
 .btn {
@@ -1637,9 +1654,29 @@ a {
   margin-top: 0.15rem;
 }
 
-.vault-key-setup .panel-note strong {
+.vault-key-modal {
+  width: min(440px, 100%);
+}
+
+.vault-key-modal .panel-note strong {
   color: var(--text, inherit);
   font-weight: 650;
+}
+
+.vault-key-modal-actions {
+  justify-content: stretch;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.5rem;
+}
+
+.vault-key-modal-actions .btn {
+  width: 100%;
+}
+
+.vault-key-modal-root {
+  /* Highest above settings drawer while key setup is required. */
+  z-index: 80;
 }
 
 .dialog-choices {
